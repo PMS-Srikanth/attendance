@@ -1,0 +1,37 @@
+{
+  "semester_start": "2025-01-01",
+  "semester_end": "2025-05-31",
+  "holidays": [
+    {
+      "date": "2025-01-26",
+      "name": "Republic Day",
+      "description": "National Holiday"
+    },
+    {
+      "date": "2025-03-08",
+      "name": "Holi",
+      "description": "Festival Holiday"
+    },
+    {
+      "date": "2025-03-25",
+      "name": "Ugadi",
+      "description": "Telugu New Year"
+    },
+    {
+      "date": "2025-04-10",
+      "name": "Good Friday",
+      "description": "Religious Holiday"
+    },
+    {
+      "date": "2025-04-14",
+      "name": "Ambedkar Jayanti",
+      "description": "National Holiday"
+    },
+    {
+      "date": "2025-05-01",
+      "name": "May Day",
+      "description": "Labour Day"
+    }
+  ],
+  "working_saturdays": []
+}

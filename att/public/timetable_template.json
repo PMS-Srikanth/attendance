@@ -1,0 +1,361 @@
+{
+  "department": "CSE",
+  "class": "B. Tech. CSE-C",
+  "semester": "IV",
+  "classroom": "A312",
+  "timeSlots": {
+    "slot1": "08:55 AM - 09:45 AM",
+    "slot2": "09:45 AM - 10:35 AM",
+    "slot3": "10:45 AM - 11:35 AM",
+    "slot4": "11:35 AM - 12:25 PM",
+    "slot5": "01:20 PM - 02:10 PM",
+    "slot6": "02:10 PM - 03:00 PM",
+    "slot7": "03:10 PM - 04:00 PM",
+    "slot8": "04:00 PM - 04:50 PM"
+  },
+  "breaks": {
+    "shortBreak1": "10:35 AM - 10:45 AM",
+    "lunchBreak": "12:25 PM - 01:15 PM",
+    "shortBreak2": "03:00 PM - 03:10 PM"
+  },
+  "weeklySchedule": {
+    "monday": {
+      "slot1": "23CSE211 - DAA",
+      "slot2": "23MAT216 - Probability and Random Processes",
+      "slot3": "23CSE212 - Principles of Functional Languages",
+      "slot4": "23CSE213 - COA (T)",
+      "slot5": "23MAT216 - Probability and Random Processes Lab (Lab 1)",
+      "slot6": "23MAT216 - Probability and Random Processes Lab (Lab 1)",
+      "slot7": "Library/Sports",
+      "slot8": "Library/Sports"
+    },
+    "tuesday": {
+      "slot1": "23CSE211 - DAA",
+      "slot2": "23CSE213 - COA",
+      "slot3": "23CSE214 - Operating Systems",
+      "slot4": "Class Advisor Hour",
+      "slot5": "23CSE211 - Design and Analysis of Algorithms Lab (Lab 2)",
+      "slot6": "23CSE211 - Design and Analysis of Algorithms Lab (Lab 2)",
+      "slot7": "Library/Sports",
+      "slot8": "Library/Sports"
+    },
+    "wednesday": {
+      "slot1": "22ADM211 - Leadership from Ramayana",
+      "slot2": "23MAT216 - Probability and Random Processes",
+      "slot3": "23CSE214 - Operating Systems",
+      "slot4": "23CSE211 - DAA",
+      "slot5": "23CSE214 - Operating Systems Lab (Lab 2)",
+      "slot6": "23CSE214 - Operating Systems Lab (Lab 2)",
+      "slot7": "Library/Sports",
+      "slot8": "Library/Sports"
+    },
+    "thursday": {
+      "slot1": "23MAT216 - Probability and Random Processes",
+      "slot2": "23CSE213 - COA",
+      "slot3": "23LSE211 - Life Skills for Engineers II",
+      "slot4": "Class Advisor Hour",
+      "slot5": "Free Elective",
+      "slot6": "Free Elective",
+      "slot7": "Library/Sports",
+      "slot8": "Library/Sports"
+    },
+    "friday": {
+      "slot1": "23CSE212 - Principles of Functional Languages",
+      "slot2": "Free Elective",
+      "slot3": "23CSE214 - Operating Systems",
+      "slot4": "23CSE213 - COA",
+      "slot5": "23CSE212 - Principles of Functional Languages Lab (Lab 1)",
+      "slot6": "23CSE212 - Principles of Functional Languages Lab (Lab 1)",
+      "slot7": "23LSE211 - Life Skills for Engineers II (BYOD)",
+      "slot8": "23LSE211 - Life Skills for Engineers II (BYOD)"
+    }
+  },
+  "courses": [
+    {
+      "code": "23MAT216",
+      "name": "Probability and Random Processes",
+      "structure": "3-0-2",
+      "credits": 4,
+      "faculty": "Dr. Prasad Goura V.M.K."
+    },
+    {
+      "code": "23CSE211",
+      "name": "Design and Analysis of Algorithms",
+      "structure": "3-0-2",
+      "credits": 4,
+      "faculty": "Mrs. Gani Lakshmi"
+    },
+    {
+      "code": "23CSE212",
+      "name": "Principles of Functional Languages",
+      "structure": "2-0-2",
+      "credits": 3,
+      "faculty": "Dr. Riyanka Manna"
+    },
+    {
+      "code": "23CSE213",
+      "name": "Computer Organization and Architecture",
+      "structure": "3-1-0",
+      "credits": 4,
+      "faculty": "Mr. Bharadwaja"
+    },
+    {
+      "code": "23CSE214",
+      "name": "Operating Systems",
+      "structure": "3-0-2",
+      "credits": 4,
+      "faculty": "Ms. M Lakshmi Prasanna"
+    },
+    {
+      "code": "22ADM211",
+      "name": "Leadership from Ramayana",
+      "structure": "1-0-0",
+      "credits": 1,
+      "faculty": "Dr. S V B K V GUPTA"
+    },
+    {
+      "code": "23LSE211",
+      "name": "Life Skills for Engineers II",
+      "structure": "1-0-2",
+      "credits": 2,
+      "faculty": "Ms. K Swathi / Mr. Sa Karthikeyan"
+    }
+  ],
+  "totalCredits": {
+    "lecture": 18,
+    "tutorial": 1,
+    "practical": 10,
+    "totalHours": 29,
+    "totalCredits": 24
+  },
+  "classAdvisors": [
+    {
+      "name": "Dr E. Suresh Reddy",
+      "email": "e_sureshreddy@av.amrita.edu",
+      "mobile": "6235422388"
+    },
+    {
+      "name": "Dr. Rashmi Prasad",
+      "email": "p_rashmi@av.amrita.edu",
+      "mobile": "7992361458"
+    }
+  ]
+}
+        "subject_name": "Database Management",
+        "room": "302",
+        "instructor": "Prof. Johnson"
+      },
+      {
+        "time_slot": "09:30-10:20",
+        "subject_code": "CS401",
+        "subject_name": "Operating Systems",
+        "room": "301",
+        "instructor": "Dr. Smith"
+      },
+      {
+        "time_slot": "10:30-11:20",
+        "subject_code": "CS405",
+        "subject_name": "Web Technologies",
+        "room": "305",
+        "instructor": "Dr. Davis"
+      },
+      {
+        "time_slot": "11:20-12:10",
+        "subject_code": "CS403",
+        "subject_name": "Computer Networks",
+        "room": "303",
+        "instructor": "Dr. Williams"
+      },
+      {
+        "time_slot": "12:10-13:00",
+        "subject_code": "BREAK",
+        "subject_name": "Lunch Break",
+        "room": "",
+        "instructor": ""
+      },
+      {
+        "time_slot": "14:10-15:00",
+        "subject_code": "CS401L",
+        "subject_name": "OS Lab",
+        "room": "Lab 1",
+        "instructor": "Dr. Smith"
+      },
+      {
+        "time_slot": "15:00-15:50",
+        "subject_code": "CS401L",
+        "subject_name": "OS Lab",
+        "room": "Lab 1",
+        "instructor": "Dr. Smith"
+      }
+    ],
+    "wednesday": [
+      {
+        "time_slot": "08:40-09:30",
+        "subject_code": "CS403",
+        "subject_name": "Computer Networks",
+        "room": "303",
+        "instructor": "Dr. Williams"
+      },
+      {
+        "time_slot": "09:30-10:20",
+        "subject_code": "CS404",
+        "subject_name": "Software Engineering",
+        "room": "304",
+        "instructor": "Prof. Brown"
+      },
+      {
+        "time_slot": "10:30-11:20",
+        "subject_code": "CS401",
+        "subject_name": "Operating Systems",
+        "room": "301",
+        "instructor": "Dr. Smith"
+      },
+      {
+        "time_slot": "11:20-12:10",
+        "subject_code": "CS402",
+        "subject_name": "Database Management",
+        "room": "302",
+        "instructor": "Prof. Johnson"
+      },
+      {
+        "time_slot": "12:10-13:00",
+        "subject_code": "BREAK",
+        "subject_name": "Lunch Break",
+        "room": "",
+        "instructor": ""
+      },
+      {
+        "time_slot": "14:10-15:00",
+        "subject_code": "CS405",
+        "subject_name": "Web Technologies",
+        "room": "305",
+        "instructor": "Dr. Davis"
+      }
+    ],
+    "thursday": [
+      {
+        "time_slot": "08:40-09:30",
+        "subject_code": "CS404",
+        "subject_name": "Software Engineering",
+        "room": "304",
+        "instructor": "Prof. Brown"
+      },
+      {
+        "time_slot": "09:30-10:20",
+        "subject_code": "CS403",
+        "subject_name": "Computer Networks",
+        "room": "303",
+        "instructor": "Dr. Williams"
+      },
+      {
+        "time_slot": "10:30-11:20",
+        "subject_code": "CS402",
+        "subject_name": "Database Management",
+        "room": "302",
+        "instructor": "Prof. Johnson"
+      },
+      {
+        "time_slot": "11:20-12:10",
+        "subject_code": "CS405",
+        "subject_name": "Web Technologies",
+        "room": "305",
+        "instructor": "Dr. Davis"
+      },
+      {
+        "time_slot": "12:10-13:00",
+        "subject_code": "BREAK",
+        "subject_name": "Lunch Break",
+        "room": "",
+        "instructor": ""
+      },
+      {
+        "time_slot": "14:10-15:00",
+        "subject_code": "CS402L",
+        "subject_name": "DBMS Lab",
+        "room": "Lab 2",
+        "instructor": "Prof. Johnson"
+      },
+      {
+        "time_slot": "15:00-15:50",
+        "subject_code": "CS402L",
+        "subject_name": "DBMS Lab",
+        "room": "Lab 2",
+        "instructor": "Prof. Johnson"
+      }
+    ],
+    "friday": [
+      {
+        "time_slot": "08:40-09:30",
+        "subject_code": "CS405",
+        "subject_name": "Web Technologies",
+        "room": "305",
+        "instructor": "Dr. Davis"
+      },
+      {
+        "time_slot": "09:30-10:20",
+        "subject_code": "CS401",
+        "subject_name": "Operating Systems",
+        "room": "301",
+        "instructor": "Dr. Smith"
+      },
+      {
+        "time_slot": "10:30-11:20",
+        "subject_code": "CS404",
+        "subject_name": "Software Engineering",
+        "room": "304",
+        "instructor": "Prof. Brown"
+      },
+      {
+        "time_slot": "11:20-12:10",
+        "subject_code": "CS403",
+        "subject_name": "Computer Networks",
+        "room": "303",
+        "instructor": "Dr. Williams"
+      },
+      {
+        "time_slot": "12:10-13:00",
+        "subject_code": "BREAK",
+        "subject_name": "Lunch Break",
+        "room": "",
+        "instructor": ""
+      },
+      {
+        "time_slot": "14:10-15:00",
+        "subject_code": "CS402",
+        "subject_name": "Database Management",
+        "room": "302",
+        "instructor": "Prof. Johnson"
+      }
+    ],
+    "saturday": [
+      {
+        "time_slot": "08:40-09:30",
+        "subject_code": "CS401",
+        "subject_name": "Operating Systems",
+        "room": "301",
+        "instructor": "Dr. Smith"
+      },
+      {
+        "time_slot": "09:30-10:20",
+        "subject_code": "CS405",
+        "subject_name": "Web Technologies",
+        "room": "305",
+        "instructor": "Dr. Davis"
+      },
+      {
+        "time_slot": "10:30-11:20",
+        "subject_code": "CS403L",
+        "subject_name": "Networks Lab",
+        "room": "Lab 3",
+        "instructor": "Dr. Williams"
+      },
+      {
+        "time_slot": "11:20-12:10",
+        "subject_code": "CS403L",
+        "subject_name": "Networks Lab",
+        "room": "Lab 3",
+        "instructor": "Dr. Williams"
+      }
+    ]
+  }
+}

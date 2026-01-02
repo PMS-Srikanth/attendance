@@ -1,0 +1,205 @@
+{
+  "info": {
+    "name": "Attendance Planner Backend",
+    "description": "Complete API collection for testing the Attendance Planner Backend",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8000"
+    }
+  ],
+  "item": [
+    {
+      "name": "Health Check",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/"
+      }
+    },
+    {
+      "name": "Calendar",
+      "item": [
+        {
+          "name": "Upload Calendar",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/calendar/",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"semester_start\": \"2024-01-01\",\n  \"semester_end\": \"2024-05-31\",\n  \"holidays\": [\n    {\"date\": \"2024-01-26\", \"name\": \"Republic Day\"},\n    {\"date\": \"2024-03-25\", \"name\": \"Holi\"},\n    {\"date\": \"2024-04-11\", \"name\": \"Eid\"}\n  ],\n  \"working_saturdays\": [\n    {\"saturday_type\": \"1st\", \"date\": \"2024-01-06\"},\n    {\"saturday_type\": \"3rd\", \"date\": \"2024-02-17\"}\n  ]\n}"
+            }
+          }
+        },
+        {
+          "name": "Get Calendar",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/calendar/"
+          }
+        },
+        {
+          "name": "Get Calendar Summary",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/calendar/summary"
+          }
+        },
+        {
+          "name": "Delete Calendar",
+          "request": {
+            "method": "DELETE",
+            "url": "{{baseUrl}}/api/calendar/"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Timetable",
+      "item": [
+        {
+          "name": "Upload Timetable",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/timetable/",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"schedule\": [\n    {\n      \"day\": \"Monday\",\n      \"classes\": [\n        {\n          \"subject_code\": \"CS101\",\n          \"subject_name\": \"Data Structures\",\n          \"time_slot\": {\"start_time\": \"09:00\", \"end_time\": \"10:00\"},\n          \"room\": \"Room 301\"\n        },\n        {\n          \"subject_code\": \"CS102\",\n          \"subject_name\": \"Algorithms\",\n          \"time_slot\": {\"start_time\": \"10:00\", \"end_time\": \"11:00\"},\n          \"room\": \"Room 302\"\n        }\n      ]\n    },\n    {\n      \"day\": \"Tuesday\",\n      \"classes\": [\n        {\n          \"subject_code\": \"CS101\",\n          \"subject_name\": \"Data Structures\",\n          \"time_slot\": {\"start_time\": \"09:00\", \"end_time\": \"10:00\"}\n        },\n        {\n          \"subject_code\": \"MATH201\",\n          \"subject_name\": \"Discrete Mathematics\",\n          \"time_slot\": {\"start_time\": \"11:00\", \"end_time\": \"12:00\"}\n        }\n      ]\n    },\n    {\n      \"day\": \"Wednesday\",\n      \"classes\": [\n        {\n          \"subject_code\": \"CS102\",\n          \"subject_name\": \"Algorithms\",\n          \"time_slot\": {\"start_time\": \"10:00\", \"end_time\": \"11:00\"}\n        }\n      ]\n    },\n    {\n      \"day\": \"Thursday\",\n      \"classes\": [\n        {\n          \"subject_code\": \"CS101\",\n          \"subject_name\": \"Data Structures\",\n          \"time_slot\": {\"start_time\": \"09:00\", \"end_time\": \"10:00\"}\n        },\n        {\n          \"subject_code\": \"MATH201\",\n          \"subject_name\": \"Discrete Mathematics\",\n          \"time_slot\": {\"start_time\": \"11:00\", \"end_time\": \"12:00\"}\n        }\n      ]\n    },\n    {\n      \"day\": \"Friday\",\n      \"classes\": [\n        {\n          \"subject_code\": \"CS102\",\n          \"subject_name\": \"Algorithms\",\n          \"time_slot\": {\"start_time\": \"10:00\", \"end_time\": \"11:00\"}\n        },\n        {\n          \"subject_code\": \"MATH201\",\n          \"subject_name\": \"Discrete Mathematics\",\n          \"time_slot\": {\"start_time\": \"14:00\", \"end_time\": \"15:00\"}\n        }\n      ]\n    }\n  ]\n}"
+            }
+          }
+        },
+        {
+          "name": "Get Timetable",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/timetable/"
+          }
+        },
+        {
+          "name": "Get Subjects",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/timetable/subjects"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Attendance",
+      "item": [
+        {
+          "name": "Generate Classes",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/attendance/generate"
+          }
+        },
+        {
+          "name": "Get All Classes",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/attendance/classes"
+          }
+        },
+        {
+          "name": "Get Classes by Subject",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/attendance/classes?subject_code=CS101"
+          }
+        },
+        {
+          "name": "Mark Class as Present",
+          "request": {
+            "method": "PATCH",
+            "url": "{{baseUrl}}/api/attendance/classes/{class_id}",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"status\": \"present\"}"
+            }
+          }
+        },
+        {
+          "name": "Mark Class as Absent",
+          "request": {
+            "method": "PATCH",
+            "url": "{{baseUrl}}/api/attendance/classes/{class_id}",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"status\": \"absent\"}"
+            }
+          }
+        },
+        {
+          "name": "Get Attendance Summary",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/attendance/summary"
+          }
+        },
+        {
+          "name": "Get Warnings",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/attendance/warnings"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Planner",
+      "item": [
+        {
+          "name": "What-If: Attend 10 Classes",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/planner/what-if",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"subject_code\": \"CS101\",\n  \"classes_to_attend\": 10,\n  \"classes_to_skip\": 0\n}"
+            }
+          }
+        },
+        {
+          "name": "What-If: Skip 3 Classes",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/planner/what-if",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"classes_to_attend\": 0,\n  \"classes_to_skip\": 3\n}"
+            }
+          }
+        },
+        {
+          "name": "Get Skip Recommendations",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/planner/skip-recommendations"
+          }
+        },
+        {
+          "name": "Get Planner Summary",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/planner/summary"
+          }
+        },
+        {
+          "name": "Get Optimization Suggestions",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/planner/suggestions"
+          }
+        }
+      ]
+    }
+  ]
+}

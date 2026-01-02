@@ -1,0 +1,14 @@
+# Render deployment configuration for FastAPI backend
+services:
+  - type: web
+    name: attendease-api
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.7
+      - key: APP_NAME
+        value: AttendEase API
+      - key: DEBUG
+        value: false
