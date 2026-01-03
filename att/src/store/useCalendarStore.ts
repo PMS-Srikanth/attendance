@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { CalendarData, Holiday, SaturdayOverride, WorkingDay } from '@/types/calendar';
+import { createUserStorage } from '@/utils/userStorage';
 
 interface CalendarStore {
   calendar: CalendarData | null;
@@ -78,6 +79,10 @@ export const useCalendarStore = create<CalendarStore>()(
     }),
     {
       name: 'calendar-storage',
+      storage: createUserStorage('calendar-storage'),
+      partialize: (state) => ({
+        calendar: state.calendar,
+      }),
     }
   )
 );

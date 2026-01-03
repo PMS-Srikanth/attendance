@@ -23,7 +23,8 @@ export const isDateToday = (date: Date | string): boolean => {
 export const isDateInFuture = (date: Date | string): boolean => {
   const dateObj = typeof date === 'string' ? new Date(date) : date;
   const today = startOfDay(new Date());
-  return isAfter(startOfDay(dateObj), today);
+  // Include today as "future" - predictions should include current day until midnight
+  return isAfter(startOfDay(dateObj), today) || isSameDay(startOfDay(dateObj), today);
 };
 
 export const getDayOfWeek = (date: Date | string): string => {

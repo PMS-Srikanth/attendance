@@ -1,5 +1,7 @@
 import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
 import { AttendanceRecord, AttendanceWarning } from '@/types/attendance';
+import { createUserStorage } from '@/utils/userStorage';
 
 interface PlannerStore {
   plannedRecords: AttendanceRecord[];
@@ -24,7 +26,9 @@ interface PlannerStore {
   hasWarningForSubject: (subjectCode: string) => boolean;
 }
 
-export const usePlannerStore = create<PlannerStore>((set, get) => ({
+export const usePlannerStore = create<PlannerStore>()(
+  persist(
+    (set, get) => ({
   plannedRecords: [],
   warnings: [],
   selectedDate: null,
@@ -92,4 +96,14 @@ export const usePlannerStore = create<PlannerStore>((set, get) => ({
   hasWarningForSubject: (subjectCode) => {
     return get().warnings.some((w) => w.subjectCode === subjectCode);
   },
-}));
+    }),
+    {
+      name: 'planner-storage',
+      storage: createUserStorage('planner-storage'),
+      partialize: (state) => ({
+        plannedRecords: state.plannedRecords,
+        warnings: state.warnings,
+      }),
+    }
+  )
+);

@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { TimetableData, Subject, TimeSlot, TimetableEntry } from '@/types/timetable';
+import { createUserStorage } from '@/utils/userStorage';
 
 interface TimetableStore {
   timetable: TimetableData | null;
@@ -66,6 +67,10 @@ export const useTimetableStore = create<TimetableStore>()(
     }),
     {
       name: 'timetable-storage',
+      storage: createUserStorage('timetable-storage'),
+      partialize: (state) => ({
+        timetable: state.timetable,
+      }),
     }
   )
 );

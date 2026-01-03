@@ -12,6 +12,7 @@ import { useAttendanceStore } from '@/store/useAttendanceStore';
 import { Holiday, SaturdayOverride } from '@/types/calendar';
 import { format } from 'date-fns';
 import { attendanceService } from '@/services/attendanceService';
+import { userLocalStorage } from '@/utils/userStorage';
 
 export const ReviewPage: React.FC = () => {
   const navigate = useNavigate();
@@ -28,7 +29,7 @@ export const ReviewPage: React.FC = () => {
   const [metadata, setMetadata] = useState<any>(null);
   
   useEffect(() => {
-    const storedMetadata = localStorage.getItem('timetableMetadata');
+    const storedMetadata = userLocalStorage.getItem('timetableMetadata');
     if (storedMetadata) {
       try {
         setMetadata(JSON.parse(storedMetadata));
@@ -305,7 +306,13 @@ export const ReviewPage: React.FC = () => {
           </div>
 
           <button 
-            onClick={() => setIsAttendanceModalOpen(true)}
+            onClick={() => {
+              console.log('=== ADD CURRENT ATTENDANCE CLICKED ===');
+              console.log('Timetable exists:', !!timetable);
+              console.log('Subjects count:', timetable?.subjects?.length);
+              console.log('Subjects:', timetable?.subjects);
+              setIsAttendanceModalOpen(true);
+            }}
             className="w-full flex items-center justify-center gap-3 px-6 py-4 bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-2xl hover:from-green-600 hover:to-emerald-600 transition-all shadow-lg hover:shadow-xl font-bold text-lg"
           >
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">

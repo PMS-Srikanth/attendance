@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { attendanceService } from '@/services/attendanceService';
 import { Button } from '@/components/common/Button';
 import { Subject } from '@/types/timetable';
+import { userLocalStorage } from '@/utils/userStorage';
 
 interface ManualAttendanceFormProps {
   subjects: Subject[];
@@ -16,6 +17,10 @@ interface SubjectAttendance {
 }
 
 export const ManualAttendanceForm: React.FC<ManualAttendanceFormProps> = ({ subjects, onSave }) => {
+  console.log('=== ManualAttendanceForm RENDER ===');
+  console.log('Total subjects received:', subjects.length);
+  console.log('All subjects:', subjects.map(s => `${s.subjectCode} - ${s.subjectName}`));
+  
   const [attendanceData, setAttendanceData] = useState<Record<string, { attended: string; total: string }>>({});
   const [isSaving, setIsSaving] = useState(false);
   const [isInitializing, setIsInitializing] = useState(true);
@@ -79,6 +84,7 @@ export const ManualAttendanceForm: React.FC<ManualAttendanceFormProps> = ({ subj
       }));
       
       localStorage.setItem('currentAttendance', JSON.stringify(attendanceSummary));
+      userLocalStorage.setItem('currentAttendance', JSON.stringify(attendanceSummary));
       console.log('✅ Attendance saved:', attendanceSummary);
       
       setMessage({ 
@@ -113,6 +119,8 @@ export const ManualAttendanceForm: React.FC<ManualAttendanceFormProps> = ({ subj
     subject.subjectName.toLowerCase().includes('lab') ||
     /\(lab\s*\d*\)/i.test(subject.subjectName)
   );
+  
+  console.log('Lab subjects found:', labSubjects.map(s => s.subjectCode));
 
   // Create a map of lab codes to their theory subject codes
   const labToTheoryMap = new Map<string, string>();
@@ -136,19 +144,23 @@ export const ManualAttendanceForm: React.FC<ManualAttendanceFormProps> = ({ subj
 
   // Filter and prepare subjects for display
   const displaySubjects = subjects.filter(subject => {
+    // Debug logging
+    console.log('Checking subject:', subject.subjectCode, subject.subjectName);
+    
     // Remove only LIBRARY and ADVISOR (keep free electives)
     if (subject.subjectCode.includes('LIBRARY') || 
         subject.subjectCode.includes('ADVISOR')) {
+      console.log('  → Filtered out (LIBRARY/ADVISOR)');
       return false;
     }
     
-    // Remove lab subjects (they'll be merged with theory)
-    if (labSubjects.some(lab => lab.subjectCode === subject.subjectCode)) {
-      return false;
-    }
-    
+    // DON'T filter lab subjects - we'll handle merging differently
+    // Just keep all subjects for now
+    console.log('  → Keeping subject');
     return true;
   });
+  
+  console.log('Final display subjects:', displaySubjects.map(s => s.subjectCode));
 
   // Check if a subject has an associated lab
   const hasLab = (subjectCode: string) => {

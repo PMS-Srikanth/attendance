@@ -111,7 +111,7 @@
 
   /* Custom gradient backgrounds */
   .bg-gradient-primary {
-    @apply bg-gradient-to-br from-primary-50 via-accent-blue-light/10 to-accent-cyan-light/10 dark:from-neutral-950 dark:via-primary-950/20 dark:to-accent-blue-dark/10;
+    @apply bg-gradient-to-br from-primary-50 via-blue-50 to-cyan-50 dark:from-neutral-950 dark:via-primary-900/20 dark:to-blue-900/10;
   }
 
   /* Shimmer effect */

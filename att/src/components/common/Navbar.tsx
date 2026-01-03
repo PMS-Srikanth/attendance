@@ -3,11 +3,10 @@ import { Link, useLocation } from 'react-router-dom';
 import { Calendar, FileUp, Layout, BarChart3, Menu, X, Sparkles, LogOut, User } from 'lucide-react';
 import { ThemeToggle } from './ThemeToggle';
 import { useAuth } from '@/contexts/AuthContext';
-import { logOut } from '@/services/firebase';
 
 export const Navbar: React.FC = () => {
   const location = useLocation();
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
 
@@ -21,7 +20,7 @@ export const Navbar: React.FC = () => {
   ];
 
   const handleLogout = async () => {
-    await logOut();
+    await logout();
   };
 
   return (

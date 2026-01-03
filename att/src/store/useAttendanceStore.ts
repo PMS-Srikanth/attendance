@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { AttendanceRecord, AttendanceSummary } from '@/types/attendance';
+import { createUserStorage } from '@/utils/userStorage';
 
 interface AttendanceStore {
   records: AttendanceRecord[];
@@ -74,6 +75,11 @@ export const useAttendanceStore = create<AttendanceStore>()(
     }),
     {
       name: 'attendance-storage',
+      storage: createUserStorage('attendance-storage'),
+      partialize: (state) => ({
+        records: state.records,
+        summary: state.summary,
+      }),
     }
   )
 );

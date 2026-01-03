@@ -9,6 +9,7 @@ import { useTimetableStore } from '@/store/useTimetableStore';
 import { useCalendarStore } from '@/store/useCalendarStore';
 import { parseAttendanceFile } from '@/utils/attendanceParser';
 import { TimetableEntry } from '@/types/timetable';
+import { userLocalStorage } from '@/utils/userStorage';
 
 export const UploadPage: React.FC = () => {
   const navigate = useNavigate();
@@ -25,12 +26,12 @@ export const UploadPage: React.FC = () => {
 
   // Auto-clear old localStorage with breaks
   useEffect(() => {
-    const originalTimeSlots = localStorage.getItem('originalTimeSlots');
+    const originalTimeSlots = userLocalStorage.getItem('originalTimeSlots');
     if (originalTimeSlots && (originalTimeSlots.includes('Break') || originalTimeSlots.includes('break'))) {
       console.log('🔧 Clearing old localStorage with breaks...');
-      localStorage.removeItem('originalTimeSlots');
-      localStorage.removeItem('originalTimetable');
-      localStorage.removeItem('timetableMetadata');
+      userLocalStorage.removeItem('originalTimeSlots');
+      userLocalStorage.removeItem('originalTimetable');
+      userLocalStorage.removeItem('timetableMetadata');
       console.log('✅ Old data cleared!');
     }
   }, []);
@@ -69,10 +70,10 @@ export const UploadPage: React.FC = () => {
     try {
       // CLEAR ALL CACHED DATA FIRST
       console.log('=== Clearing all cached timetable data ===');
-      localStorage.removeItem('timetableMetadata');
-      localStorage.removeItem('originalTimeSlots');
-      localStorage.removeItem('originalTimetable');
-      localStorage.removeItem('timetable-storage'); // Clear Zustand persist storage
+      userLocalStorage.removeItem('timetableMetadata');
+      userLocalStorage.removeItem('originalTimeSlots');
+      userLocalStorage.removeItem('originalTimetable');
+      // Note: Zustand stores now use user-specific storage automatically
       
       // Clear the store
       setTimetable(null as any);
@@ -228,9 +229,9 @@ export const UploadPage: React.FC = () => {
         timetableData = { days };
         
         // Store metadata and original structure in localStorage
-        localStorage.setItem('timetableMetadata', JSON.stringify(metadata));
-        localStorage.setItem('originalTimeSlots', JSON.stringify(originalTimeSlots));
-        localStorage.setItem('originalTimetable', JSON.stringify({
+        userLocalStorage.setItem('timetableMetadata', JSON.stringify(metadata));
+        userLocalStorage.setItem('originalTimeSlots', JSON.stringify(originalTimeSlots));
+        userLocalStorage.setItem('originalTimetable', JSON.stringify({
           weeklySchedule: jsonData.weeklySchedule,
           timeSlots: jsonData.timeSlots
         }));
@@ -282,8 +283,8 @@ export const UploadPage: React.FC = () => {
 
       if (timetableFetch.success && timetableFetch.data) {
         // Check if we have original time slots from JSON input
-        const storedOriginalTimeSlots = localStorage.getItem('originalTimeSlots');
-        const storedOriginalTimetable = localStorage.getItem('originalTimetable');
+        const storedOriginalTimeSlots = userLocalStorage.getItem('originalTimeSlots');
+        const storedOriginalTimetable = userLocalStorage.getItem('originalTimetable');
         
         if (storedOriginalTimeSlots && storedOriginalTimetable) {
           // Use the EXACT time slots from the original JSON

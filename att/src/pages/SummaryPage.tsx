@@ -10,6 +10,7 @@ import { usePlannerStore } from '@/store/usePlannerStore';
 import { useTimetableStore } from '@/store/useTimetableStore';
 import { AttendanceSummary, SubjectAttendance } from '@/types/attendance';
 import { calculatePercentage } from '@/utils/statusUtils';
+import { userLocalStorage } from '@/utils/userStorage';
 
 export const SummaryPage: React.FC = () => {
   const navigate = useNavigate();
@@ -22,7 +23,7 @@ export const SummaryPage: React.FC = () => {
     if (!timetable) return;
 
     // Load saved attendance from localStorage
-    const savedAttendance = localStorage.getItem('currentAttendance');
+    const savedAttendance = userLocalStorage.getItem('currentAttendance');
     const attendanceMap = new Map<string, { attended: number; total: number }>();
     
     if (savedAttendance) {
