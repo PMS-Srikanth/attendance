@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/common/Button';
 import { PlannerGrid } from '@/components/planner/PlannerGrid';
 import { WarningBanner } from '@/components/planner/WarningBanner';
+import { CalendarManagement } from '@/components/planner/CalendarManagement';
 import { useTimetableStore } from '@/store/useTimetableStore';
 import { useCalendarStore } from '@/store/useCalendarStore';
 import { useAttendanceStore } from '@/store/useAttendanceStore';
@@ -31,13 +32,22 @@ export const PlannerPage: React.FC = () => {
         endDate.toISOString().split('T')[0]
       );
 
-      // Filter out holidays and Sundays
+      // Filter out holidays and Sundays, but include Saturday overrides
       const workingDates = dates.filter((date) => {
         const dayOfWeek = getDayOfWeek(date);
+        
+        // Check if this is a Saturday override (working Saturday)
+        const isSaturdayOverride = calendar.saturdayOverrides.some((o) => o.date === date);
+        
+        // Sundays are always off (unless it's a Saturday override, but that doesn't make sense)
         if (dayOfWeek === 'Sunday') return false;
         
+        // Check if it's a holiday
         const isHoliday = calendar.holidays.some((h) => h.date === date);
         if (isHoliday) return false;
+
+        // Saturdays are off by default unless overridden
+        if (dayOfWeek === 'Saturday' && !isSaturdayOverride) return false;
 
         return true;
       });
@@ -91,6 +101,9 @@ export const PlannerPage: React.FC = () => {
 
         {/* Warnings */}
         {warnings.length > 0 && <WarningBanner warnings={warnings} />}
+
+        {/* Calendar Management */}
+        <CalendarManagement />
 
         {/* Planner Grid */}
         <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl rounded-3xl shadow-2xl dark:shadow-gray-900/50 p-8 mb-6 border border-gray-200 dark:border-gray-700 animate-slide-up">

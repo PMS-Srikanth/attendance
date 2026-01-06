@@ -1,153 +1,54 @@
-# 🚀 Deployment Guide - AttendEase
+# 🚀 Deployment Guide
 
-Complete guide to deploy your attendance planner application to production.
+## Prerequisites
 
-## 📋 Prerequisites
+- GitHub account
+- Vercel account (frontend)
+- Render account (backend)
 
-- GitHub account (for code hosting)
-- Vercel account (for frontend) - [Sign up here](https://vercel.com)
-- Render/Railway account (for backend) - [Render](https://render.com) or [Railway](https://railway.app)
+## Step 1: Push to GitHub
 
-## 🎯 Deployment Options
-
-### Option 1: Vercel (Frontend) + Render (Backend) - **RECOMMENDED**
-- ✅ Free tier available
-- ✅ Auto-deployment from GitHub
-- ✅ Built-in CI/CD
-- ✅ Custom domain support
-
-### Option 2: Netlify (Frontend) + Railway (Backend)
-- ✅ Similar features to Option 1
-- ✅ Slightly different UI/UX
-
----
-
-## 🔷 Step 1: Prepare Your Code
-
-### 1.1 Initialize Git Repository (if not already done)
 ```bash
-cd "C:\Users\srika\OneDrive\Desktop\full"
 git init
 git add .
-git commit -m "Initial commit - AttendEase"
-```
-
-### 1.2 Create GitHub Repository
-1. Go to [GitHub](https://github.com/new)
-2. Create a new repository named `attendease`
-3. Push your code:
-```bash
+git commit -m "Initial commit"
 git remote add origin https://github.com/YOUR_USERNAME/attendease.git
-git branch -M main
 git push -u origin main
 ```
 
----
+## Step 2: Deploy Backend (Render)
 
-## 🔷 Step 2: Deploy Backend (FastAPI)
-
-### Option A: Deploy to Render.com
-
-1. **Go to [Render Dashboard](https://dashboard.render.com)**
-
-2. **Click "New +" → "Web Service"**
-
-3. **Connect your GitHub repository** and select `attendease`
-
-4. **Configure the service:**
-   - **Name:** `attendease-api`
-   - **Region:** Choose closest to your users
-   - **Branch:** `main`
-   - **Root Directory:** `attb`
-   - **Runtime:** `Python 3`
-   - **Build Command:** `pip install -r requirements.txt`
-   - **Start Command:** `uvicorn app.main:app --host 0.0.0.0 --port $PORT`
-
-5. **Add Environment Variables:**
+1. Go to [Render Dashboard](https://dashboard.render.com)
+2. New → Web Service → Connect GitHub repo
+3. Configure:
+   - Root Directory: `attb`
+   - Build Command: `pip install -r requirements.txt`
+   - Start Command: `uvicorn app.main:app --host 0.0.0.0 --port $PORT`
+4. Add environment variables:
    - `PYTHON_VERSION`: `3.11.7`
-   - `APP_NAME`: `AttendEase API`
-   - `APP_VERSION`: `1.0.0`
-   - `DEBUG`: `false`
-   - `CORS_ORIGINS`: `https://your-frontend-url.vercel.app`
+   - `CORS_ORIGINS`: `https://your-app.vercel.app` (update after frontend deploy)
+5. Deploy and copy URL
 
-6. **Select Free Plan** (or paid if you prefer)
+## Step 3: Deploy Frontend (Vercel)
 
-7. **Click "Create Web Service"**
+1. Go to [Vercel Dashboard](https://vercel.com/dashboard)
+2. Add New → Project → Import GitHub repo
+3. Configure:
+   - Framework: Vite
+   - Root Directory: `att`
+   - Build Command: `npm run build`
+   - Output Directory: `dist`
+4. Add environment variable:
+   - `VITE_API_BASE_URL`: `https://your-backend.onrender.com/api`
+5. Deploy
 
-8. **Wait for deployment** (5-10 minutes)
+## Step 4: Update CORS
 
-9. **Copy your backend URL:** `https://attendease-api.onrender.com`
+Update backend `CORS_ORIGINS` on Render with your Vercel URL.
 
-### Option B: Deploy to Railway.app
+## Step 5: Configure Firebase
 
-1. **Go to [Railway](https://railway.app)**
-
-2. **Click "New Project" → "Deploy from GitHub repo"**
-
-3. **Select your repository**
-
-4. **Configure:**
-   - **Root Directory:** `attb`
-   - **Start Command:** `uvicorn app.main:app --host 0.0.0.0 --port $PORT`
-
-5. **Add Environment Variables** (same as Render)
-
-6. **Deploy and copy your URL**
-
----
-
-## 🔷 Step 3: Deploy Frontend (React + Vite)
-
-### Deploy to Vercel
-
-1. **Go to [Vercel Dashboard](https://vercel.com/dashboard)**
-
-2. **Click "Add New..." → "Project"**
-
-3. **Import your GitHub repository**
-
-4. **Configure the project:**
-   - **Framework Preset:** Vite
-   - **Root Directory:** `att`
-   - **Build Command:** `npm run build`
-   - **Output Directory:** `dist`
-
-5. **Add Environment Variables:**
-   - Variable: `VITE_API_BASE_URL`
-   - Value: `https://attendease-api.onrender.com/api` (your backend URL from Step 2)
-
-6. **Click "Deploy"**
-
-7. **Wait for deployment** (2-5 minutes)
-
-8. **Your app is live!** Copy the URL: `https://attendease-xxx.vercel.app`
-
----
-
-## 🔷 Step 4: Update CORS Settings
-
-After deploying the frontend, update your backend CORS settings:
-
-### On Render:
-1. Go to your backend service
-2. Environment → Add variable
-3. **Key:** `CORS_ORIGINS`
-4. **Value:** `https://your-actual-frontend-url.vercel.app`
-5. Save and redeploy
-
-### In code (attb/app/core/config.py):
-Update the CORS_ORIGINS to include your frontend URL:
-```python
-CORS_ORIGINS: str = "http://localhost:5173,https://your-frontend-url.vercel.app"
-```
-
----
-
-## 🔷 Step 5: Test Your Deployed Application
-
-1. Visit your frontend URL
-2. Upload a timetable JSON
-3. Verify the data loads correctly
+Add your Vercel domain to Firebase authorized domains (see [FIREBASE_SETUP.md](FIREBASE_SETUP.md)).
 4. Test all features: Review, Planner, Summary
 
 ---

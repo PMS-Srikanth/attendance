@@ -1,153 +1,46 @@
-# 🔥 Firebase Setup Guide for Google OAuth
+# 🔥 Firebase Setup Guide
 
-This guide will walk you through setting up Firebase Authentication for your AttendEase app.
+## Step 1: Create Firebase Project
 
-## 📋 Prerequisites
+1. Go to [Firebase Console](https://console.firebase.google.com)
+2. Click "Create a project" → Enter name → Create
+3. Click web icon (`</>`) → Register app
+4. Copy the config values
 
-- Google account
-- 5-10 minutes
+## Step 2: Enable Google Authentication
 
----
+1. Go to Authentication → Get started
+2. Sign-in method → Google → Enable
+3. Enter support email → Save
 
-## 🚀 Step 1: Create Firebase Project
+## Step 3: Configure App
 
-1. **Go to [Firebase Console](https://console.firebase.google.com)**
-
-2. **Click "Add project" or "Create a project"**
-
-3. **Enter project name:** `AttendEase` (or any name you prefer)
-
-4. **Google Analytics:** You can disable it for now (optional)
-
-5. **Click "Create project"** and wait for it to be ready
-
-6. **Click "Continue"** once your project is ready
-
----
-
-## 🌐 Step 2: Register Your Web App
-
-1. **In the Firebase Console, click the web icon (`</>`)** to add a web app
-
-2. **App nickname:** `AttendEase Web`
-
-3. **Firebase Hosting:** Leave unchecked (we're using Vercel)
-
-4. **Click "Register app"**
-
-5. **Copy the configuration object** - you'll need these values:
-
-```javascript
-const firebaseConfig = {
-  apiKey: "AIzaSy...",
-  authDomain: "attendease-xxxxx.firebaseapp.com",
-  projectId: "attendease-xxxxx",
-  storageBucket: "attendease-xxxxx.appspot.com",
-  messagingSenderId: "123456789",
-  appId: "1:123456789:web:abcd..."
-};
-```
-
----
-
-## 🔐 Step 3: Enable Google Authentication
-
-1. **In Firebase Console, go to:** Build → Authentication
-
-2. **Click "Get started"**
-
-3. **Click on "Sign-in method" tab**
-
-4. **Click on "Google"** from the providers list
-
-5. **Toggle "Enable"** switch
-
-6. **Project public-facing name:** `AttendEase`
-
-7. **Project support email:** Select your email
-
-8. **Click "Save"**
-
-✅ Google Authentication is now enabled!
-
----
-
-## 📝 Step 4: Configure Your App
-
-1. **Create a `.env` file** in the `att/` directory (frontend)
-
-2. **Copy contents from `.env.example`**
-
-3. **Fill in your Firebase config values:**
+Create `att/.env` file:
 
 ```env
-VITE_FIREBASE_API_KEY=AIzaSy...
-VITE_FIREBASE_AUTH_DOMAIN=attendease-xxxxx.firebaseapp.com
-VITE_FIREBASE_PROJECT_ID=attendease-xxxxx
-VITE_FIREBASE_STORAGE_BUCKET=attendease-xxxxx.appspot.com
-VITE_FIREBASE_MESSAGING_SENDER_ID=123456789
-VITE_FIREBASE_APP_ID=1:123456789:web:abcd...
+VITE_FIREBASE_API_KEY=your_api_key
+VITE_FIREBASE_AUTH_DOMAIN=your_project.firebaseapp.com
+VITE_FIREBASE_PROJECT_ID=your_project_id
+VITE_FIREBASE_STORAGE_BUCKET=your_project.appspot.com
+VITE_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
+VITE_FIREBASE_APP_ID=your_app_id
 VITE_API_BASE_URL=http://localhost:8000/api
 ```
 
-4. **Save the file**
+## Step 4: Test
 
----
-
-## 🧪 Step 5: Test Locally
-
-1. **Start your backend:**
 ```bash
-cd attb
-python run.ps1  # or ./run.sh on Mac/Linux
+cd attb && python run.ps1  # Start backend
+cd att && npm run dev      # Start frontend
 ```
 
-2. **Start your frontend:**
-```bash
-cd att
-npm run dev
-```
+Visit http://localhost:5173 and test Google sign-in.
 
-3. **Open:** http://localhost:5173
+## Production Setup
 
-4. **You should see the login page**
-
-5. **Click "Continue with Google"**
-
-6. **Sign in with your Google account**
-
-7. **You should be redirected to the Upload page** ✅
-
----
-
-## 🌍 Step 6: Configure for Production (After Deployment)
-
-Once you deploy to Vercel, you need to add your production domain to Firebase:
-
-1. **Go to Firebase Console → Authentication → Settings**
-
-2. **Scroll to "Authorized domains"**
-
-3. **Click "Add domain"**
-
-4. **Add your Vercel domain:** `your-app.vercel.app`
-
-5. **Click "Add"**
-
----
-
-## 🔒 Security Best Practices
-
-### Don't commit `.env` file
-Your `.env` file contains sensitive keys. Make sure it's in `.gitignore`:
-
-```gitignore
-.env
-.env.local
-.env.production
-```
-
-### Add environment variables to Vercel
+After deploying to Vercel:
+1. Firebase Console → Authentication → Settings → Authorized domains
+2. Add your Vercel domain: `your-app.vercel.app`
 
 When deploying to Vercel:
 

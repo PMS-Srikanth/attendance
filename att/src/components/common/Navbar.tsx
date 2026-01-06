@@ -86,14 +86,23 @@ export const Navbar: React.FC = () => {
                       className="flex items-center gap-3 px-4 py-2 rounded-2xl bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition-all group"
                     >
                       {user.photoURL ? (
-                        <img src={user.photoURL} alt={user.displayName || 'User'} className="w-8 h-8 rounded-full" />
+                        <img src={user.photoURL} alt="" className="w-8 h-8 rounded-full" />
                       ) : (
                         <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary-600 to-accent-cyan flex items-center justify-center">
-                          <User size={18} className="text-white" />
+                          <span className="text-white text-sm font-bold">
+                            {(() => {
+                              const parts = (user.displayName || '').split(' ').filter(Boolean);
+                              const name = parts.length > 1 ? parts[1] : parts[0] || 'U';
+                              return name.charAt(0).toUpperCase();
+                            })()}
+                          </span>
                         </div>
                       )}
                       <span className="text-sm font-semibold text-gray-700 dark:text-gray-300 max-w-[120px] truncate">
-                        {user.displayName || 'User'}
+                        {(() => {
+                          const parts = (user.displayName || '').split(' ').filter(Boolean);
+                          return parts.length > 1 ? parts[1] : parts[0];
+                        })()}
                       </span>
                     </button>
 
@@ -101,7 +110,12 @@ export const Navbar: React.FC = () => {
                     {isUserMenuOpen && (
                       <div className="absolute right-0 mt-2 w-64 bg-white dark:bg-gray-900 rounded-2xl shadow-soft-lg border border-gray-200 dark:border-gray-800 overflow-hidden">
                         <div className="p-4 border-b border-gray-200 dark:border-gray-800">
-                          <p className="text-sm font-bold text-gray-900 dark:text-white">{user.displayName}</p>
+                          <p className="text-sm font-bold text-gray-900 dark:text-white">
+                            {(() => {
+                              const parts = (user.displayName || '').split(' ').filter(Boolean);
+                              return parts.length > 1 ? parts[1] : parts[0];
+                            })()}
+                          </p>
                           <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{user.email}</p>
                         </div>
                         <button
@@ -136,14 +150,25 @@ export const Navbar: React.FC = () => {
                   <div className="p-4 bg-gray-100 dark:bg-gray-800 rounded-2xl mb-4">
                     <div className="flex items-center gap-3 mb-3">
                       {user.photoURL ? (
-                        <img src={user.photoURL} alt={user.displayName || 'User'} className="w-12 h-12 rounded-full" />
+                        <img src={user.photoURL} alt="" className="w-12 h-12 rounded-full" />
                       ) : (
                         <div className="w-12 h-12 rounded-full bg-gradient-to-br from-primary-600 to-accent-cyan flex items-center justify-center">
-                          <User size={24} className="text-white" />
+                          <span className="text-white text-lg font-bold">
+                            {(() => {
+                              const parts = (user.displayName || '').split(' ').filter(Boolean);
+                              const name = parts.length > 1 ? parts[1] : parts[0] || 'U';
+                              return name.charAt(0).toUpperCase();
+                            })()}
+                          </span>
                         </div>
                       )}
                       <div>
-                        <p className="text-sm font-bold text-gray-900 dark:text-white">{user.displayName}</p>
+                        <p className="text-sm font-bold text-gray-900 dark:text-white">
+                          {(() => {
+                            const parts = (user.displayName || '').split(' ').filter(Boolean);
+                            return parts.length > 1 ? parts[1] : parts[0];
+                          })()}
+                        </p>
                         <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{user.email}</p>
                       </div>
                     </div>
