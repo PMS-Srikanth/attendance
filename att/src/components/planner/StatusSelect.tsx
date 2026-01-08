@@ -5,7 +5,7 @@ import { getStatusColor, getStatusLabel } from '@/utils/statusUtils';
 interface StatusSelectProps {
   currentStatus?: AttendanceStatus;
   isPast: boolean;
-  onChange: (status: 'planned-present' | 'planned-absent') => void;
+  onChange: (status?: 'planned-present' | 'planned-absent') => void;
 }
 
 export const StatusSelect: React.FC<StatusSelectProps> = ({
@@ -24,7 +24,9 @@ export const StatusSelect: React.FC<StatusSelectProps> = ({
   return (
     <div className="flex gap-2">
       <button
-        onClick={() => onChange('planned-present')}
+        onClick={() =>
+          onChange(currentStatus === 'planned-present' ? undefined : 'planned-present')
+        }
         className={`flex-1 px-3 py-2 rounded-lg text-sm font-semibold border-2 transition-all ${
           currentStatus === 'planned-present'
             ? 'bg-emerald-500 text-white border-emerald-600 hover:bg-emerald-600 shadow-lg shadow-emerald-500/30'
@@ -34,7 +36,9 @@ export const StatusSelect: React.FC<StatusSelectProps> = ({
         ✓ Present
       </button>
       <button
-        onClick={() => onChange('planned-absent')}
+        onClick={() =>
+          onChange(currentStatus === 'planned-absent' ? undefined : 'planned-absent')
+        }
         className={`flex-1 px-3 py-2 rounded-lg text-sm font-semibold border-2 transition-all ${
           currentStatus === 'planned-absent'
             ? 'bg-rose-500 text-white border-rose-600 hover:bg-rose-600 shadow-lg shadow-rose-500/30'

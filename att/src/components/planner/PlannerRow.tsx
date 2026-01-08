@@ -11,7 +11,7 @@ interface PlannerRowProps {
   entries: TimetableEntry[];
   records: AttendanceRecord[];
   plannedRecords: AttendanceRecord[];
-  onStatusChange: (date: string, subjectCode: string, slotNumber: number, status: 'planned-present' | 'planned-absent') => void;
+  onStatusChange: (date: string, subjectCode: string, slotNumber: number, status?: 'planned-present' | 'planned-absent') => void;
 }
 
 export const PlannerRow: React.FC<PlannerRowProps> = ({

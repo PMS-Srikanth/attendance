@@ -76,7 +76,7 @@ export const PlannerPage: React.FC = () => {
     date: string,
     subjectCode: string,
     slotNumber: number,
-    status: 'planned-present' | 'planned-absent'
+    status?: 'planned-present' | 'planned-absent'
   ) => {
     updatePlannedRecord(date, subjectCode, slotNumber, status);
   };

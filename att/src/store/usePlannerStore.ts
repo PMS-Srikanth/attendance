@@ -12,7 +12,7 @@ interface PlannerStore {
   
   setPlannedRecords: (records: AttendanceRecord[]) => void;
   addPlannedRecord: (record: AttendanceRecord) => void;
-  updatePlannedRecord: (date: string, subjectCode: string, slotNumber: number, status: 'planned-present' | 'planned-absent') => void;
+  updatePlannedRecord: (date: string, subjectCode: string, slotNumber: number, status?: 'planned-present' | 'planned-absent') => void;
   removePlannedRecord: (date: string, subjectCode: string, slotNumber: number) => void;
   clearPlannedRecords: () => void;
   
@@ -47,6 +47,16 @@ export const usePlannerStore = create<PlannerStore>()(
       const existingIndex = state.plannedRecords.findIndex(
         (r) => r.date === date && r.subjectCode === subjectCode && r.slotNumber === slotNumber
       );
+
+      if (!status) {
+        // Clear selection
+        if (existingIndex >= 0) {
+          const updatedRecords = [...state.plannedRecords];
+          updatedRecords.splice(existingIndex, 1);
+          return { plannedRecords: updatedRecords };
+        }
+        return state;
+      }
 
       if (existingIndex >= 0) {
         const updatedRecords = [...state.plannedRecords];
