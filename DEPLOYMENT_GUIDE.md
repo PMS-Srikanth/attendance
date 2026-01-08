@@ -26,7 +26,9 @@ git push -u origin main
    - Start Command: `uvicorn app.main:app --host 0.0.0.0 --port $PORT`
 4. Add environment variables:
    - `PYTHON_VERSION`: `3.11.7`
-   - `CORS_ORIGINS`: `https://your-app.vercel.app` (update after frontend deploy)
+   - `DEBUG`: `false`
+   - `ALLOW_ALL_ORIGINS`: `true` (temporary, until frontend URL is known)
+   - `ALLOWED_ORIGINS`: `http://localhost:5173` (optional; set to your Vercel URL later)
 5. Deploy and copy URL
 
 ## Step 3: Deploy Frontend (Vercel)
@@ -44,7 +46,9 @@ git push -u origin main
 
 ## Step 4: Update CORS
 
-Update backend `CORS_ORIGINS` on Render with your Vercel URL.
+Update backend CORS on Render after Vercel deploy:
+- Set `ALLOW_ALL_ORIGINS` to `false`
+- Set `ALLOWED_ORIGINS` to your Vercel URL (example: `https://your-app.vercel.app`)
 
 ## Step 5: Configure Firebase
 
@@ -97,7 +101,7 @@ Your app will automatically rebuild and deploy! 🎉
 ## 🐛 Troubleshooting
 
 ### Issue: CORS errors
-- **Fix:** Update `CORS_ORIGINS` in backend environment variables
+- **Fix:** Update `ALLOW_ALL_ORIGINS` / `ALLOWED_ORIGINS` in backend environment variables
 
 ### Issue: API connection failed
 - **Fix:** Check `VITE_API_BASE_URL` in Vercel environment variables
