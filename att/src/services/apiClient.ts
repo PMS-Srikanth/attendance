@@ -3,13 +3,20 @@ import { ApiResponse } from '@/types/api';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
 
+type RetryableAxiosRequestConfig = {
+  __retryCount?: number;
+  __maxRetries?: number;
+  __retryDelayMs?: number;
+};
+
 class ApiClient {
   private client: AxiosInstance;
 
   constructor() {
     this.client = axios.create({
       baseURL: API_BASE_URL,
-      timeout: 30000,
+      // Render/free-tier services can cold-start; allow more time in production.
+      timeout: import.meta.env.DEV ? 30000 : 180000,
       headers: {
         'Content-Type': 'application/json',
       },
@@ -33,7 +40,27 @@ class ApiClient {
     // Response interceptor
     this.client.interceptors.response.use(
       (response) => response,
-      (error: AxiosError) => {
+      async (error: AxiosError) => {
+        const config = (error.config || {}) as (typeof error.config & RetryableAxiosRequestConfig);
+
+        // Retry ONLY safe idempotent GET requests on transient failures.
+        const method = (config.method || '').toLowerCase();
+        const status = error.response?.status;
+        const isTimeout = error.code === 'ECONNABORTED' || (typeof error.message === 'string' && error.message.toLowerCase().includes('timeout'));
+        const isTransientHttp = status === 502 || status === 503 || status === 504;
+
+        if (method === 'get' && (isTimeout || isTransientHttp)) {
+          const currentRetry = config.__retryCount ?? 0;
+          const maxRetries = config.__maxRetries ?? 2;
+          if (currentRetry < maxRetries) {
+            config.__retryCount = currentRetry + 1;
+            const delayMs = config.__retryDelayMs ?? 600;
+            const backoffMs = delayMs * Math.pow(2, currentRetry);
+            await new Promise((resolve) => setTimeout(resolve, backoffMs));
+            return this.client.request(config);
+          }
+        }
+
         // Handle errors globally
         if (error.response?.status === 401) {
           // Unauthorized - clear token and redirect to login
