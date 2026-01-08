@@ -1,6 +1,10 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { User } from 'firebase/auth';
 import { onAuthChange, logOut as firebaseLogout } from '@/services/firebase';
+import { useAttendanceStore } from '@/store/useAttendanceStore';
+import { useCalendarStore } from '@/store/useCalendarStore';
+import { usePlannerStore } from '@/store/usePlannerStore';
+import { useTimetableStore } from '@/store/useTimetableStore';
 
 interface AuthContextType {
   user: User | null;
@@ -16,12 +20,6 @@ const AuthContext = createContext<AuthContextType>({
 
 export const useAuth = () => useContext(AuthContext);
 
-// Helper to get user-specific storage key
-export const getUserStorageKey = (key: string, userEmail?: string | null): string => {
-  if (!userEmail) return key;
-  return `${userEmail}:${key}`;
-};
-
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
@@ -30,22 +28,65 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const unsubscribe = onAuthChange((newUser) => {
       const previousEmail = localStorage.getItem('currentUserEmail');
       const newEmail = newUser?.email || null;
-      
-      // If user changed (different email), trigger a page reload to rehydrate stores
-      if (previousEmail && newEmail && previousEmail !== newEmail) {
-        console.log('[Auth] User changed, reloading stores...');
-        localStorage.setItem('currentUserEmail', newEmail);
-        // Force reload to rehydrate all stores with new user data
-        window.location.reload();
-        return;
-      }
-      
+
       setUser(newUser);
       setLoading(false);
       
       // Store user email for storage utility
       if (newEmail) {
         localStorage.setItem('currentUserEmail', newEmail);
+
+        // When switching accounts, Zustand persist won't necessarily overwrite in-memory
+        // state if the new user's storage key doesn't exist (storage.getItem returns null).
+        // That can cause user A's timetable/data to appear for user B.
+        //
+        // Fix: for each store, if the new user has persisted state, rehydrate;
+        // otherwise clear the store to a safe empty state.
+        const hasUserStorageKey = (baseKey: string): boolean => {
+          try {
+            return localStorage.getItem(`${newEmail}:${baseKey}`) != null;
+          } catch {
+            return false;
+          }
+        };
+
+        // Force Zustand persist stores to rehydrate using the now-known email.
+        // This avoids "vanishing" data when stores initialize before auth resolves.
+        try {
+          if (hasUserStorageKey('attendance-storage')) {
+            useAttendanceStore.persist?.rehydrate?.();
+          } else {
+            useAttendanceStore.getState().clearAttendance();
+          }
+
+          if (hasUserStorageKey('calendar-storage')) {
+            useCalendarStore.persist?.rehydrate?.();
+          } else {
+            useCalendarStore.getState().clearCalendar();
+          }
+
+          if (hasUserStorageKey('timetable-storage')) {
+            useTimetableStore.persist?.rehydrate?.();
+          } else {
+            useTimetableStore.getState().clearTimetable();
+          }
+
+          if (hasUserStorageKey('planner-storage')) {
+            usePlannerStore.persist?.rehydrate?.();
+          } else {
+            const planner = usePlannerStore.getState();
+            planner.clearPlannedRecords();
+            planner.clearWarnings();
+          }
+        } catch (e) {
+          console.warn('[Auth] Store rehydrate failed:', e);
+        }
+
+        if (previousEmail && previousEmail !== newEmail) {
+          if (import.meta.env.DEV) {
+            console.log('[Auth] User changed, stores rehydrated for new user');
+          }
+        }
       } else {
         localStorage.removeItem('currentUserEmail');
       }
@@ -55,25 +96,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const logout = async () => {
-    // Clear all user-specific data from localStorage
-    if (user?.email) {
-      const keysToRemove = [
-        'attendance-storage',
-        'timetable-storage',
-        'calendar-storage',
-        'planner-storage',
-        'timetableMetadata',
-        'originalTimeSlots',
-        'originalTimetable',
-        'currentAttendance'
-      ];
-      
-      keysToRemove.forEach(key => {
-        localStorage.removeItem(getUserStorageKey(key, user.email));
-      });
-    }
-    
-    // Clear user email marker
+    // NOTE: Do not delete persisted user data on logout.
+    // Users expect their uploaded data + custom calendar changes (holidays / Saturday overrides)
+    // to still be present after refresh and after signing back in.
+    //
+    // If you ever need a "privacy mode" for shared devices, implement an explicit
+    // "Clear my local data" action instead of doing it implicitly here.
+
+    // Clear user email marker (used only for keying persisted data during this session)
     localStorage.removeItem('currentUserEmail');
     
     // Logout from Firebase

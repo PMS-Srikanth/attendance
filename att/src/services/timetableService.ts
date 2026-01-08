@@ -76,7 +76,9 @@ export const timetableService = {
           })
       }));
     
-    console.log('Sending to backend:', JSON.stringify({ schedule }, null, 2));
+    if (import.meta.env.DEV) {
+      console.log('Sending to backend:', JSON.stringify({ schedule }, null, 2));
+    }
     return apiClient.post('/timetable/', { schedule });
   },
 

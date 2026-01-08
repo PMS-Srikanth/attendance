@@ -53,12 +53,12 @@ def test_get_day_name():
 
 def test_count_saturdays_in_range():
     """Test counting Saturdays in a range."""
-    # January 2024 has 5 Saturdays (6, 13, 20, 27)
+    # January 2024 has 4 Saturdays (6, 13, 20, 27)
     start = date(2024, 1, 1)
     end = date(2024, 1, 31)
     
     count = count_saturdays_in_range(start, end)
-    assert count == 5
+    assert count == 4
 
 
 def test_count_weekdays_in_range():

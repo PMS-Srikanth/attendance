@@ -25,8 +25,6 @@ export const resetAllStores = () => {
   timetableStore.clearTimetable();
   plannerStore.clearPlannedRecords();
   plannerStore.clearWarnings();
-  
-  console.log('[StoreReset] All stores cleared, rehydration will occur from localStorage');
 };
 
 /**

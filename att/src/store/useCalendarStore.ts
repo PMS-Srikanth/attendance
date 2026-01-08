@@ -1,5 +1,6 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { createJSONStorage, persist } from 'zustand/middleware';
+import type { PersistOptions } from 'zustand/middleware';
 import { CalendarData, Holiday, SaturdayOverride, WorkingDay } from '@/types/calendar';
 import { createUserStorage } from '@/utils/userStorage';
 
@@ -79,10 +80,10 @@ export const useCalendarStore = create<CalendarStore>()(
     }),
     {
       name: 'calendar-storage',
-      storage: createUserStorage('calendar-storage'),
+      storage: createJSONStorage(() => createUserStorage('calendar-storage')),
       partialize: (state) => ({
         calendar: state.calendar,
       }),
-    }
+    } satisfies PersistOptions<CalendarStore, Pick<CalendarStore, 'calendar'>>
   )
 );

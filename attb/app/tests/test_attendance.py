@@ -26,13 +26,13 @@ def test_classes_needed_for_threshold():
     # Below threshold - need to attend classes
     # Current: 60/100 = 60%
     # Need: (60 + x) / (100 + x) >= 0.75
-    # x >= 40
+    # x >= 60
     result = calculate_classes_needed_for_threshold(60, 100, 75)
-    assert result == 40
+    assert result == 60
     
     # Another scenario: 50/100 = 50%
     result = calculate_classes_needed_for_threshold(50, 100, 75)
-    assert result == 67  # Need 67 more classes
+    assert result == 100  # Need 100 more classes
 
 
 def test_classes_can_miss():

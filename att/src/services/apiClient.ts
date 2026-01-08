@@ -57,9 +57,9 @@ class ApiClient {
     }
   }
 
-  async post<T>(url: string, data?: any): Promise<ApiResponse<T>> {
+  async post<T>(url: string, data?: any, params?: any): Promise<ApiResponse<T>> {
     try {
-      const response: AxiosResponse<T> = await this.client.post(url, data);
+      const response: AxiosResponse<T> = await this.client.post(url, data, params ? { params } : undefined);
       return {
         success: true,
         data: response.data
@@ -122,11 +122,13 @@ class ApiClient {
   }
 
   private handleError(error: any): ApiResponse<any> {
-    console.error('=== API Error Debug ===');
-    console.error('Full error:', error);
-    console.error('Response data:', error.response?.data);
-    console.error('Response status:', error.response?.status);
-    console.error('Error message:', error.message);
+    if (import.meta.env.DEV) {
+      console.error('=== API Error Debug ===');
+      console.error('Full error:', error);
+      console.error('Response data:', error.response?.data);
+      console.error('Response status:', error.response?.status);
+      console.error('Error message:', error.message);
+    }
     
     if (axios.isAxiosError(error)) {
       const detail = error.response?.data?.detail;

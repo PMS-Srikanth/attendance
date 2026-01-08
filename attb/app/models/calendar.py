@@ -30,9 +30,9 @@ class CalendarInput(BaseModel):
     @field_validator('semester_end')
     @classmethod
     def validate_dates(cls, v, info):
-        """Ensure semester_end is after semester_start."""
-        if 'semester_start' in info.data and v <= info.data['semester_start']:
-            raise ValueError("semester_end must be after semester_start")
+        """Ensure semester_end is not before semester_start."""
+        if 'semester_start' in info.data and v < info.data['semester_start']:
+            raise ValueError("semester_end must be on or after semester_start")
         return v
 
 

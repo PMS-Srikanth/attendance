@@ -8,13 +8,13 @@ import { attendanceService } from '@/services/attendanceService';
 import { useTimetableStore } from '@/store/useTimetableStore';
 import { useCalendarStore } from '@/store/useCalendarStore';
 import { parseAttendanceFile } from '@/utils/attendanceParser';
-import { TimetableEntry } from '@/types/timetable';
 import { userLocalStorage } from '@/utils/userStorage';
 
 export const UploadPage: React.FC = () => {
   const navigate = useNavigate();
   const { setTimetable, setLoading, setError } = useTimetableStore();
   const { setCalendar } = useCalendarStore();
+  const isDev = import.meta.env.DEV;
   const [timetableFile, setTimetableFile] = useState<File | null>(null);
   const [calendarFile, setCalendarFile] = useState<File | null>(null);
   const [attendanceFile, setAttendanceFile] = useState<File | null>(null);
@@ -22,19 +22,22 @@ export const UploadPage: React.FC = () => {
   const [uploadError, setUploadError] = useState<string>('');
   const [inputMode, setInputMode] = useState<'file' | 'text'>('file');
   const [timetableJson, setTimetableJson] = useState<string>('');
-  const [calendarJson, setCalendarJson] = useState<string>('');
 
   // Auto-clear old localStorage with breaks
   useEffect(() => {
     const originalTimeSlots = userLocalStorage.getItem('originalTimeSlots');
     if (originalTimeSlots && (originalTimeSlots.includes('Break') || originalTimeSlots.includes('break'))) {
-      console.log('🔧 Clearing old localStorage with breaks...');
+      if (isDev) {
+        console.log('[Upload] Clearing legacy timetable cache with breaks');
+      }
       userLocalStorage.removeItem('originalTimeSlots');
       userLocalStorage.removeItem('originalTimetable');
       userLocalStorage.removeItem('timetableMetadata');
-      console.log('✅ Old data cleared!');
+      if (isDev) {
+        console.log('[Upload] Legacy cache cleared');
+      }
     }
-  }, []);
+  }, [isDev]);
 
   const handleTimetableChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -55,7 +58,9 @@ export const UploadPage: React.FC = () => {
   };
 
   const handleUpload = async () => {
-    console.log('=== Starting Upload Process ===');
+    if (isDev) {
+      console.log('=== Starting Upload Process ===');
+    }
     
     // Check if we have timetable data (either file or JSON text)
     if (!timetableFile && !timetableJson.trim()) {
@@ -69,59 +74,65 @@ export const UploadPage: React.FC = () => {
 
     try {
       // CLEAR ALL CACHED DATA FIRST
-      console.log('=== Clearing all cached timetable data ===');
+      if (isDev) {
+        console.log('=== Clearing all cached timetable data ===');
+      }
       userLocalStorage.removeItem('timetableMetadata');
       userLocalStorage.removeItem('originalTimeSlots');
       userLocalStorage.removeItem('originalTimetable');
       // Note: Zustand stores now use user-specific storage automatically
-      
-      // Clear the store
-      setTimetable(null as any);
-      setCalendar(null as any);
+
+      // Do not clear the persisted stores here.
+      // If an upload fails mid-way, clearing would permanently overwrite the user's saved data.
       
       // Clear backend timetable cache
-      console.log('=== Clearing backend timetable ===');
+      if (isDev) {
+        console.log('=== Clearing backend timetable ===');
+      }
       try {
         await timetableService.deleteTimetable();
       } catch (err) {
-        console.log('Backend timetable clear (may not exist yet)');
+        if (isDev) {
+          console.log('Backend timetable clear (may not exist yet)');
+        }
       }
       
-      console.log('=== Cache cleared, starting fresh upload ===');
+      if (isDev) {
+        console.log('=== Cache cleared, starting fresh upload ===');
+      }
       
       // Step 1: Parse and upload calendar
       let calendarData;
       
-      if (inputMode === 'text' && calendarJson.trim()) {
-        // Parse calendar from textarea
-        try {
-          calendarData = JSON.parse(calendarJson);
-        } catch (error) {
-          throw new Error('Invalid calendar JSON format. Please check your syntax.');
-        }
-      } else if (calendarFile) {
+      if (calendarFile) {
         const calendarText = await calendarFile.text();
         calendarData = JSON.parse(calendarText);
       } else {
         // Default calendar if not provided
         calendarData = {
-          semester_start: '2025-01-01',
-          semester_end: '2025-05-31',
+          semester_start: '2026-01-01',
+          semester_end: '2026-05-31',
           holidays: [],
           working_saturdays: [],
         };
       }
 
-      console.log('Uploading calendar:', calendarData);
+      if (isDev) {
+        console.log('Uploading calendar:', calendarData);
+      }
       const calendarResponse = await calendarService.uploadCalendar(calendarData);
-      console.log('Calendar response:', calendarResponse);
+      if (isDev) {
+        console.log('Calendar response:', calendarResponse);
+      }
       
       if (!calendarResponse.success) {
         throw new Error(calendarResponse.error || 'Failed to upload calendar');
       }
 
       // Step 2: Parse the timetable data
-      console.log('=== Parsing Timetable Data ===');
+      if (isDev) {
+        console.log('=== Parsing Timetable Data ===');
+      }
       
       let jsonData;
       
@@ -144,7 +155,9 @@ export const UploadPage: React.FC = () => {
         jsonData = JSON.parse(fileText);
       }
       
-      console.log('Parsed timetable JSON:', jsonData);
+      if (isDev) {
+        console.log('Parsed timetable JSON:', jsonData);
+      }
       
       // Check if this is the new comprehensive format
       let timetableData;
@@ -153,7 +166,9 @@ export const UploadPage: React.FC = () => {
       
       if (jsonData.weeklySchedule && jsonData.timeSlots) {
         // New comprehensive format with predefined time slots
-        console.log('Detected comprehensive timetable format with time slots');
+        if (isDev) {
+          console.log('Detected comprehensive timetable format with time slots');
+        }
         
         // Store the ORIGINAL time slots structure
         originalTimeSlots = jsonData.timeSlots;
@@ -242,18 +257,24 @@ export const UploadPage: React.FC = () => {
         };
       }
 
-      console.log('Uploading timetable:', timetableData);
+      if (isDev) {
+        console.log('Uploading timetable:', timetableData);
+      }
       
       try {
         const timetableResponse = await timetableService.uploadTimetable(timetableData);
-        console.log('Timetable response:', timetableResponse);
+        if (isDev) {
+          console.log('Timetable response:', timetableResponse);
+        }
         
         if (!timetableResponse.success) {
           throw new Error(timetableResponse.error || 'Failed to upload timetable');
         }
       } catch (err: any) {
-        console.error('Timetable upload error details:', err);
-        console.error('Error response:', err.response?.data);
+        if (isDev) {
+          console.error('Timetable upload error details:', err);
+          console.error('Error response:', err.response?.data);
+        }
         throw new Error(`Timetable upload failed: ${err.response?.data?.detail || err.message}`);
       }
 
@@ -265,8 +286,8 @@ export const UploadPage: React.FC = () => {
         // Transform backend calendar to frontend format
         const backendCalendar = calendarFetch.data;
         const transformedCalendar = {
-          semesterStartDate: backendCalendar.semester_start || '2025-01-01',
-          semesterEndDate: backendCalendar.semester_end || '2025-05-31',
+          semesterStartDate: backendCalendar.semester_start || '2026-01-01',
+          semesterEndDate: backendCalendar.semester_end || '2026-05-31',
           holidays: Array.isArray(backendCalendar.holidays) ? backendCalendar.holidays.map((h: any) => ({
             date: h.date,
             name: h.name,
@@ -274,10 +295,12 @@ export const UploadPage: React.FC = () => {
           })) : [],
           saturdayOverrides: Array.isArray(backendCalendar.saturday_overrides) ? backendCalendar.saturday_overrides.map((s: any) => ({
             date: s.date,
-            override_type: s.override_type
+            followsDay: s.follows_day || s.followsDay || 'Monday'
           })) : [],
         };
-        console.log('Transformed calendar:', transformedCalendar);
+        if (isDev) {
+          console.log('Transformed calendar:', transformedCalendar);
+        }
         setCalendar(transformedCalendar);
       }
 
@@ -288,7 +311,9 @@ export const UploadPage: React.FC = () => {
         
         if (storedOriginalTimeSlots && storedOriginalTimetable) {
           // Use the EXACT time slots from the original JSON
-          console.log('Using original time slots from JSON');
+          if (isDev) {
+            console.log('Using original time slots from JSON');
+          }
           
           const originalTimeSlots = JSON.parse(storedOriginalTimeSlots);
           const originalTimetable = JSON.parse(storedOriginalTimetable);
@@ -305,7 +330,9 @@ export const UploadPage: React.FC = () => {
             return numA - numB;
           });
           
-          console.log('Processing slot keys in order:', slotKeys);
+          if (isDev) {
+            console.log('Processing slot keys in order:', slotKeys);
+          }
           
           slotKeys.forEach((slotKey, index) => {
             const timeRange = originalTimeSlots[slotKey];
@@ -320,13 +347,17 @@ export const UploadPage: React.FC = () => {
               isBreak: false,
             });
             
-            console.log(`✓ Mapped ${slotKey} -> slotNumber ${slotNumber}: ${timeRange}`);
+            if (isDev) {
+              console.log(`✓ Mapped ${slotKey} -> slotNumber ${slotNumber}: ${timeRange}`);
+            }
           });
           
-          console.log('=== FINAL SLOT MAPPING ===');
-          console.log('Total slots created:', timeSlots.length);
-          console.log('Slot mapping:', Array.from(slotKeyToNumber.entries()));
-          console.log('TimeSlots array:', timeSlots);
+          if (isDev) {
+            console.log('=== FINAL SLOT MAPPING ===');
+            console.log('Total slots created:', timeSlots.length);
+            console.log('Slot mapping:', Array.from(slotKeyToNumber.entries()));
+            console.log('TimeSlots array:', timeSlots);
+          }
           
           // Extract subjects and create entries
           const subjects: any[] = [];
@@ -399,16 +430,20 @@ export const UploadPage: React.FC = () => {
             entries,
           };
           
-          console.log('=== SETTING NEW TIMETABLE DATA (Fresh Upload) ===');
-          console.log('Timestamp:', new Date().toISOString());
-          console.log('Transformed timetable using original JSON structure:', transformedTimetable);
-          console.log('Sample entries:', entries.slice(0, 5));  // Log first 5 entries
-          console.log('Total entries:', entries.length);
-          console.log('Total time slots:', timeSlots.length);
+          if (isDev) {
+            console.log('=== SETTING NEW TIMETABLE DATA (Fresh Upload) ===');
+            console.log('Timestamp:', new Date().toISOString());
+            console.log('Transformed timetable using original JSON structure:', transformedTimetable);
+            console.log('Sample entries:', entries.slice(0, 5));  // Log first 5 entries
+            console.log('Total entries:', entries.length);
+            console.log('Total time slots:', timeSlots.length);
+          }
           setTimetable(transformedTimetable);
         } else {
           // Fallback: Use backend data to derive time slots
-          console.log('No original time slots found, deriving from backend data');
+          if (isDev) {
+            console.log('No original time slots found, deriving from backend data');
+          }
           
           const backendSchedule = timetableFetch.data.schedule || [];
           const subjects: any[] = [];
@@ -454,7 +489,7 @@ export const UploadPage: React.FC = () => {
             .sort((a, b) => a[1].startTime.localeCompare(b[1].startTime));
 
           // Create time slots array with ordered slot numbers
-          const timeSlots = sortedTimeSlotEntries.map(([timeKey, times], index) => ({
+          const timeSlots = sortedTimeSlotEntries.map(([_timeKey, times], index) => ({
             slotNumber: index + 1,
             startTime: times.startTime,
             endTime: times.endTime,
@@ -484,65 +519,92 @@ export const UploadPage: React.FC = () => {
             entries,
           };
           
-          console.log('Transformed timetable from backend:', transformedTimetable);
+          if (isDev) {
+            console.log('Transformed timetable from backend:', transformedTimetable);
+          }
           setTimetable(transformedTimetable);
         }
       }
 
       // Step 4: Generate class instances (always needed for attendance tracking)
-      console.log('=== Generating Class Instances ===');
+      if (isDev) {
+        console.log('=== Generating Class Instances ===');
+      }
       try {
         const generateResponse = await attendanceService.generateClasses();
         if (generateResponse.success) {
-          console.log('Classes generated successfully:', generateResponse.data);
+          if (isDev) {
+            console.log('Classes generated successfully:', generateResponse.data);
+          }
         } else {
-          console.warn('Failed to generate classes:', generateResponse.error);
+          if (isDev) {
+            console.warn('Failed to generate classes:', generateResponse.error);
+          }
         }
       } catch (error) {
-        console.warn('Error generating classes:', error);
+        if (isDev) {
+          console.warn('Error generating classes:', error);
+        }
         // Don't fail upload if class generation fails
       }
 
       // Step 5: Upload Current Attendance (if provided)
       if (attendanceFile) {
-        console.log('=== Processing Attendance File ===');
+        if (isDev) {
+          console.log('=== Processing Attendance File ===');
+        }
         
         // Parse the attendance file
         const parseResult = await parseAttendanceFile(attendanceFile);
         
         if (!parseResult.success) {
-          console.error('Attendance file parsing errors:', parseResult.errors);
+          if (isDev) {
+            console.error('Attendance file parsing errors:', parseResult.errors);
+          }
           setUploadError(`Attendance file errors: ${parseResult.errors.join(', ')}`);
           // Don't fail the entire upload, just warn
         } else {
-          console.log(`Parsed ${parseResult.data.length} attendance records`);
+          if (isDev) {
+            console.log(`Parsed ${parseResult.data.length} attendance records`);
+          }
           
           // Upload attendance records
           const uploadResult = await attendanceService.uploadAttendanceRecords(parseResult.data);
           
           if (uploadResult.success) {
-            console.log('Attendance uploaded:', uploadResult.data);
+            if (isDev) {
+              console.log('Attendance uploaded:', uploadResult.data);
+            }
             if (uploadResult.data?.notFound && uploadResult.data.notFound.length > 0) {
-              console.warn('Some attendance records not matched:', uploadResult.data.notFound);
+              if (isDev) {
+                console.warn('Some attendance records not matched:', uploadResult.data.notFound);
+              }
             }
           } else {
-            console.error('Failed to upload attendance:', uploadResult.error);
+            if (isDev) {
+              console.error('Failed to upload attendance:', uploadResult.error);
+            }
             setUploadError(`Attendance upload failed: ${uploadResult.error}`);
           }
         }
       } else {
-        console.log('No attendance file provided - skipping attendance upload');
+        if (isDev) {
+          console.log('No attendance file provided - skipping attendance upload');
+        }
       }
 
       // Navigate to review page
-      console.log('=== Upload Success - Navigating to Review ===');
+      if (isDev) {
+        console.log('=== Upload Success - Navigating to Review ===');
+      }
       navigate('/review');
     } catch (error: any) {
-      console.error('=== Upload Error ===', error);
+      if (isDev) {
+        console.error('=== Upload Error ===', error);
+      }
       const errorMessage = error.message || 'Failed to upload files';
       setError(errorMessage);
       setUploadError(errorMessage);
-      alert('Error: ' + errorMessage); // Temporary alert for debugging
     } finally {
       setIsUploading(false);
       setLoading(false);
@@ -679,6 +741,9 @@ export const UploadPage: React.FC = () => {
                     </p>
                     <p className="text-xs text-blue-600 dark:text-blue-400">
                       Download the template above to see the required format with day, time, subject, and room details.
+                    </p>
+                    <p className="text-xs text-blue-600 dark:text-blue-400 mt-2">
+                      If you generate this with an LLM, ask it to return only valid JSON in the same template format.
                     </p>
                   </div>
                   <textarea

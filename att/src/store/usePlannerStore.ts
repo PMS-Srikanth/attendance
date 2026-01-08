@@ -1,5 +1,6 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { createJSONStorage, persist } from 'zustand/middleware';
+import type { PersistOptions } from 'zustand/middleware';
 import { AttendanceRecord, AttendanceWarning } from '@/types/attendance';
 import { createUserStorage } from '@/utils/userStorage';
 
@@ -99,11 +100,11 @@ export const usePlannerStore = create<PlannerStore>()(
     }),
     {
       name: 'planner-storage',
-      storage: createUserStorage('planner-storage'),
+      storage: createJSONStorage(() => createUserStorage('planner-storage')),
       partialize: (state) => ({
         plannedRecords: state.plannedRecords,
         warnings: state.warnings,
       }),
-    }
+    } satisfies PersistOptions<PlannerStore, Pick<PlannerStore, 'plannedRecords' | 'warnings'>>
   )
 );

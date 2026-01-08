@@ -8,29 +8,29 @@ interface TimetableGridProps {
   entries: TimetableEntry[];
   timeSlots: TimeSlot[];
   attendanceRecords?: AttendanceRecord[];
+  editMode?: boolean;
+  selectedCell?: { day: string; slotNumber: number } | null;
+  onCellClick?: (params: {
+    day: string;
+    slotNumber: number;
+    entry?: TimetableEntry;
+    rowSpan: number;
+  }) => void;
 }
 
 // Saturday is excluded as it's handled via academic calendar and Saturday override feature
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
 
-export const TimetableGrid: React.FC<TimetableGridProps> = ({ entries, timeSlots, attendanceRecords = [] }) => {
-  // Debug logging
-  console.log('TimetableGrid - Entries:', entries);
-  console.log('TimetableGrid - TimeSlots:', timeSlots);
-  console.log('TimetableGrid - Days to display:', DAYS);
-  
-  // Log sample entries to see structure
-  if (entries.length > 0) {
-    console.log('Sample entry:', entries[0]);
-  }
-  
+export const TimetableGrid: React.FC<TimetableGridProps> = ({
+  entries,
+  timeSlots,
+  attendanceRecords = [],
+  editMode = false,
+  selectedCell = null,
+  onCellClick,
+}) => {
   const getEntryForSlot = (day: string, slotNumber: number): TimetableEntry | undefined => {
     const entry = entries.find((entry) => entry.day === day && entry.slotNumber === slotNumber);
-    if (!entry && slotNumber === 1) {
-      console.log(`No entry found for ${day} slot ${slotNumber}. Available entries for ${day}:`, 
-        entries.filter(e => e.day === day).map(e => ({ slot: e.slotNumber, subject: e.subjectCode }))
-      );
-    }
     return entry;
   };
 
@@ -124,6 +124,7 @@ export const TimetableGrid: React.FC<TimetableGridProps> = ({ entries, timeSlots
                 const entry = getEntryForSlot(day, slot.slotNumber);
                 const hide = shouldHideSlot(day, slot.slotNumber);
                 const labRange = entry ? getLabSlotRange(day, slot.slotNumber, entry) : null;
+                const rowSpan = labRange ? (parseInt(labRange.split('& ')[1]) - slot.slotNumber + 1) : 1;
                 
                 if (hide) {
                   return null; // Don't render this cell
@@ -136,8 +137,18 @@ export const TimetableGrid: React.FC<TimetableGridProps> = ({ entries, timeSlots
                     day={day}
                     slotNumber={slot.slotNumber}
                     labSlotRange={labRange}
-                    rowSpan={labRange ? (parseInt(labRange.split('& ')[1]) - slot.slotNumber + 1) : 1}
+                    rowSpan={rowSpan}
                     attendanceRecords={attendanceRecords}
+                    editMode={editMode}
+                    isSelected={selectedCell?.day === day && selectedCell?.slotNumber === slot.slotNumber}
+                    onCellClick={() =>
+                      onCellClick?.({
+                        day,
+                        slotNumber: slot.slotNumber,
+                        entry,
+                        rowSpan,
+                      })
+                    }
                   />
                 );
               })}

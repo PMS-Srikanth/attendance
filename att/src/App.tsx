@@ -21,13 +21,17 @@ const App = () => {
                 path="/*"
                 element={
                   <ProtectedRoute>
-                    <Navbar />
-                    <Routes>
-                      <Route path="/" element={<UploadPage />} />
-                      <Route path="/review" element={<ReviewPage />} />
-                      <Route path="/planner" element={<PlannerPage />} />
-                      <Route path="/summary" element={<SummaryPage />} />
-                    </Routes>
+                    <div className="min-h-screen md:flex">
+                      <Navbar />
+                      <main className="flex-1 md:ml-64">
+                        <Routes>
+                          <Route path="/" element={<UploadPage />} />
+                          <Route path="/review" element={<ReviewPage />} />
+                          <Route path="/planner" element={<PlannerPage />} />
+                          <Route path="/summary" element={<SummaryPage />} />
+                        </Routes>
+                      </main>
+                    </div>
                   </ProtectedRoute>
                 }
               />

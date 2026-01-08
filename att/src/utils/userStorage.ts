@@ -6,6 +6,8 @@
 import { StateStorage } from 'zustand/middleware';
 import { getAuth } from 'firebase/auth';
 
+const isDev = import.meta.env.DEV;
+
 // Get current user email from Firebase auth
 export const getCurrentUserEmail = (): string | null => {
   // First try localStorage (set by AuthContext)
@@ -36,7 +38,9 @@ export const getCurrentUserEmail = (): string | null => {
 export const getUserStorageKey = (baseKey: string, userEmail?: string | null): string => {
   const email = userEmail || getCurrentUserEmail();
   if (!email) {
-    console.warn(`No user email found for key: ${baseKey}, using non-user-specific key`);
+    if (isDev) {
+      console.warn(`No user email found for key: ${baseKey}, using non-user-specific key`);
+    }
     return baseKey;
   }
   return `${email}:${baseKey}`;
@@ -53,25 +57,36 @@ export const createUserStorage = (baseName: string): StateStorage => {
       
       // Track email changes
       if (currentUserEmail && email && currentUserEmail !== email) {
-        console.log(`[Storage] User changed from ${currentUserEmail} to ${email} for ${baseName}`);
+        if (isDev) {
+          console.log(`[Storage] User changed from ${currentUserEmail} to ${email} for ${baseName}`);
+        }
       }
       currentUserEmail = email;
       
       const value = localStorage.getItem(key);
-      console.log(`[Storage] GET ${key}:`, value ? 'found' : 'not found');
+      if (isDev) {
+        console.log(`[Storage] GET ${key}:`, value ? 'found' : 'not found');
+      }
       return value;
     },
     setItem: (name: string, value: string): void => {
       const email = getCurrentUserEmail();
       const key = getUserStorageKey(baseName, email);
       currentUserEmail = email;
-      console.log(`[Storage] SET ${key}`);
+      if (isDev) {
+        console.log(`[Storage] SET ${key}`);
+      }
       localStorage.setItem(key, value);
+      if (isDev) {
+        console.log('[Storage] Verify saved:', localStorage.getItem(key) ? 'SUCCESS' : 'FAILED');
+      }
     },
     removeItem: (name: string): void => {
       const email = getCurrentUserEmail();
       const key = getUserStorageKey(baseName, email);
-      console.log(`[Storage] REMOVE ${key}`);
+      if (isDev) {
+        console.log(`[Storage] REMOVE ${key}`);
+      }
       localStorage.removeItem(key);
     },
   };

@@ -10,6 +10,9 @@ interface SlotCellProps {
   labSlotRange?: string | null;
   rowSpan?: number;
   attendanceRecords?: AttendanceRecord[];
+  editMode?: boolean;
+  isSelected?: boolean;
+  onCellClick?: () => void;
 }
 
 const getDayMapping = (day: string): number => {
@@ -25,15 +28,25 @@ const getDayMapping = (day: string): number => {
   return mapping[day] || 0;
 };
 
-export const SlotCell: React.FC<SlotCellProps> = ({ entry, day, slotNumber, labSlotRange, rowSpan = 1, attendanceRecords = [] }) => {
-  // Log when we receive an entry to ensure data is flowing
-  if (entry && slotNumber === 1 && day === 'Monday') {
-    console.log('SlotCell received entry for Monday Slot 1:', entry);
-  }
-  
+export const SlotCell: React.FC<SlotCellProps> = ({
+  entry,
+  day,
+  slotNumber,
+  labSlotRange,
+  rowSpan = 1,
+  attendanceRecords = [],
+  editMode = false,
+  isSelected = false,
+  onCellClick,
+}) => {
   if (!entry) {
     return (
-      <td className="border border-gray-300 dark:border-gray-700 px-2 py-3 text-center bg-gray-50 dark:bg-gray-900">
+      <td
+        className={`border border-gray-300 dark:border-gray-700 px-2 py-3 text-center bg-gray-50 dark:bg-gray-900 ${
+          editMode ? 'cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800' : ''
+        } ${isSelected ? 'ring-2 ring-primary-500 ring-inset' : ''}`}
+        onClick={editMode ? onCellClick : undefined}
+      >
         <span className="text-xs text-gray-400 dark:text-gray-600">—</span>
       </td>
     );
@@ -89,9 +102,12 @@ export const SlotCell: React.FC<SlotCellProps> = ({ entry, day, slotNumber, labS
   }
 
   return (
-    <td 
-      className={`border border-gray-300 dark:border-gray-700 px-2 py-3 ${bgColor} transition-colors`}
+    <td
+      className={`border border-gray-300 dark:border-gray-700 px-2 py-3 ${bgColor} transition-colors ${
+        editMode ? 'cursor-pointer hover:opacity-95' : ''
+      } ${isSelected ? 'ring-2 ring-primary-500 ring-inset' : ''}`}
       rowSpan={rowSpan}
+      onClick={editMode ? onCellClick : undefined}
     >
       <div className="text-sm">
         <div className="font-semibold text-gray-900 dark:text-white">{entry.subjectCode}</div>

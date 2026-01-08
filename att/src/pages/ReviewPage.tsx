@@ -2,8 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/common/Button';
 import { TimetableGrid } from '@/components/timetable/TimetableGrid';
-import { CalendarList } from '@/components/calendar/CalendarList';
-import { SaturdayOverrideForm } from '@/components/calendar/SaturdayOverride';
 import { ManualAttendanceForm } from '@/components/attendance/ManualAttendanceForm';
 import { Modal } from '@/components/common/Modal';
 import { useTimetableStore } from '@/store/useTimetableStore';
@@ -16,14 +14,14 @@ import { userLocalStorage } from '@/utils/userStorage';
 
 export const ReviewPage: React.FC = () => {
   const navigate = useNavigate();
-  const { timetable } = useTimetableStore();
-  const { calendar, addHoliday, removeHoliday, addSaturdayOverride, removeSaturdayOverride } =
-    useCalendarStore();
+  const { timetable, moveEntry } = useTimetableStore();
+  const { calendar } = useCalendarStore();
   const { records } = useAttendanceStore();
-  const [isHolidayModalOpen, setIsHolidayModalOpen] = useState(false);
-  const [isSaturdayModalOpen, setIsSaturdayModalOpen] = useState(false);
   const [isAttendanceModalOpen, setIsAttendanceModalOpen] = useState(false);
-  const [holidayForm, setHolidayForm] = useState({ date: '', name: '', type: 'college' });
+
+  const [isTimetableEditMode, setIsTimetableEditMode] = useState(false);
+  const [selectedCell, setSelectedCell] = useState<{ day: string; slotNumber: number } | null>(null);
+  const [editHint, setEditHint] = useState<string | null>(null);
   
   // Load metadata from localStorage
   const [metadata, setMetadata] = useState<any>(null);
@@ -38,10 +36,6 @@ export const ReviewPage: React.FC = () => {
       }
     }
   }, []);
-
-  // Debug logging
-  console.log('ReviewPage - timetable:', timetable);
-  console.log('ReviewPage - calendar:', calendar);
 
   if (!timetable || !calendar) {
     return (
@@ -59,23 +53,6 @@ export const ReviewPage: React.FC = () => {
       </div>
     );
   }
-
-  const handleAddHoliday = () => {
-    if (holidayForm.date && holidayForm.name) {
-      addHoliday({
-        date: holidayForm.date,
-        name: holidayForm.name,
-        type: holidayForm.type as Holiday['type'],
-      });
-      setHolidayForm({ date: '', name: '', type: 'college' });
-      setIsHolidayModalOpen(false);
-    }
-  };
-
-  const handleAddSaturdayOverride = (override: SaturdayOverride) => {
-    addSaturdayOverride(override);
-    setIsSaturdayModalOpen(false);
-  };
 
   const handleAttendanceSaved = () => {
     setIsAttendanceModalOpen(false);
@@ -229,54 +206,99 @@ export const ReviewPage: React.FC = () => {
             entries={timetable.entries} 
             timeSlots={timetable.timeSlots}
             attendanceRecords={records}
-          />
-        </div>
+            editMode={isTimetableEditMode}
+            selectedCell={selectedCell}
+            onCellClick={({ day, slotNumber, entry, rowSpan }) => {
+              if (!isTimetableEditMode) return;
 
-        {/* Calendar Section */}
-        <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/20 dark:border-gray-700/50 p-8 mb-6 animate-slide-up hover:shadow-3xl transition-all">
-          <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-500 flex items-center justify-center shadow-lg">
-                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
+              if (entry?.isLab && rowSpan > 1) {
+                setEditHint('Lab blocks can’t be moved yet. Please move single-period classes only.');
+                setSelectedCell(null);
+                return;
+              }
+
+              // First click: pick a class
+              if (!selectedCell) {
+                if (!entry) return;
+                setSelectedCell({ day, slotNumber });
+                setEditHint('Selected. Now click a destination slot to move (swaps if occupied).');
+                return;
+              }
+
+              // Second click: drop to destination (or cancel)
+              if (selectedCell.day === day && selectedCell.slotNumber === slotNumber) {
+                setSelectedCell(null);
+                setEditHint(null);
+                return;
+              }
+
+              const res = moveEntry(
+                { day: selectedCell.day as any, slotNumber: selectedCell.slotNumber },
+                { day: day as any, slotNumber }
+              );
+
+              if (!res?.moved) {
+                setEditHint('Nothing moved. Try selecting a class cell first.');
+              } else {
+                setEditHint(res.swapped ? 'Moved (swapped with existing class).' : 'Moved to empty slot.');
+              }
+              setSelectedCell(null);
+            }}
+          />
+
+          {/* Manual rescheduling */}
+          <div className="mt-6 p-5 rounded-2xl border-2 border-gray-200 dark:border-gray-700 bg-gray-50/60 dark:bg-gray-900/30">
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+              <div>
+                <p className="text-sm font-semibold text-gray-900 dark:text-white">Manual timetable rescheduling</p>
+                <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                  Turn on edit mode, click a class to select it, then click another slot to place it. If the destination already has a class, we swap.
+                </p>
               </div>
-              <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Academic Calendar</h2>
-            </div>
-            <div className="px-4 py-2 bg-gradient-to-r from-blue-500 to-indigo-500 text-white rounded-xl shadow-lg text-sm font-semibold">
-              {format(new Date(calendar.semesterStartDate), 'MMM dd, yyyy')} - {format(new Date(calendar.semesterEndDate), 'MMM dd, yyyy')}
-            </div>
-          </div>
 
-          <div className="flex gap-3 mb-6">
-            <button 
-              onClick={() => setIsHolidayModalOpen(true)}
-              className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-teal-500 to-emerald-500 text-white rounded-xl hover:from-teal-600 hover:to-emerald-600 transition-all shadow-lg hover:shadow-xl font-medium"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-              </svg>
-              Add Holiday
-            </button>
-            <button 
-              onClick={() => setIsSaturdayModalOpen(true)}
-              className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-indigo-500 to-blue-500 text-white rounded-xl hover:from-indigo-600 hover:to-blue-600 transition-all shadow-lg hover:shadow-xl font-medium"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-              </svg>
-              Add Saturday Override
-            </button>
-          </div>
+              <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+                {isTimetableEditMode ? (
+                  <>
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        setSelectedCell(null);
+                        setEditHint(null);
+                      }}
+                    >
+                      Cancel selection
+                    </Button>
+                    <Button
+                      variant="primary"
+                      onClick={() => {
+                        setIsTimetableEditMode(false);
+                        setSelectedCell(null);
+                        setEditHint(null);
+                      }}
+                    >
+                      Done
+                    </Button>
+                  </>
+                ) : (
+                  <Button
+                    variant="primary"
+                    onClick={() => {
+                      setIsTimetableEditMode(true);
+                      setEditHint('Edit mode on. Click a class cell to select it.');
+                    }}
+                  >
+                    Enable edit mode
+                  </Button>
+                )}
+              </div>
+            </div>
 
-          <CalendarList
-            holidays={calendar.holidays}
-            saturdayOverrides={calendar.saturdayOverrides}
-            onRemoveHoliday={removeHoliday}
-            onRemoveOverride={removeSaturdayOverride}
-          />
+            {editHint && (
+              <p className="mt-3 text-xs text-gray-600 dark:text-gray-400">{editHint}</p>
+            )}
+          </div>
         </div>
-        
+
         {/* Current Attendance Section */}
         <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/20 dark:border-gray-700/50 p-8 mb-6 animate-slide-up hover:shadow-3xl transition-all">
           <div className="flex items-center gap-3 mb-6">
@@ -307,10 +329,6 @@ export const ReviewPage: React.FC = () => {
 
           <button 
             onClick={() => {
-              console.log('=== ADD CURRENT ATTENDANCE CLICKED ===');
-              console.log('Timetable exists:', !!timetable);
-              console.log('Subjects count:', timetable?.subjects?.length);
-              console.log('Subjects:', timetable?.subjects);
               setIsAttendanceModalOpen(true);
             }}
             className="w-full flex items-center justify-center gap-3 px-6 py-4 bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-2xl hover:from-green-600 hover:to-emerald-600 transition-all shadow-lg hover:shadow-xl font-bold text-lg"
@@ -344,60 +362,6 @@ export const ReviewPage: React.FC = () => {
           </button>
         </div>
       </div>
-
-      {/* Add Holiday Modal */}
-      <Modal
-        isOpen={isHolidayModalOpen}
-        onClose={() => setIsHolidayModalOpen(false)}
-        title="Add Holiday"
-      >
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Date</label>
-            <input
-              type="date"
-              value={holidayForm.date}
-              onChange={(e) => setHolidayForm({ ...holidayForm, date: e.target.value })}
-              className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-primary-500 focus:border-primary-500"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Name</label>
-            <input
-              type="text"
-              value={holidayForm.name}
-              onChange={(e) => setHolidayForm({ ...holidayForm, name: e.target.value })}
-              className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-primary-500 focus:border-primary-500"
-              placeholder="e.g., Diwali"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Type</label>
-            <select
-              value={holidayForm.type}
-              onChange={(e) => setHolidayForm({ ...holidayForm, type: e.target.value })}
-              className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-primary-500 focus:border-primary-500"
-            >
-              <option value="national">National</option>
-              <option value="college">College</option>
-              <option value="exam">Exam</option>
-              <option value="other">Other</option>
-            </select>
-          </div>
-          <Button onClick={handleAddHoliday} className="w-full">
-            Add Holiday
-          </Button>
-        </div>
-      </Modal>
-
-      {/* Add Saturday Override Modal */}
-      <Modal
-        isOpen={isSaturdayModalOpen}
-        onClose={() => setIsSaturdayModalOpen(false)}
-        title="Add Saturday Working Day"
-      >
-        <SaturdayOverrideForm onAdd={handleAddSaturdayOverride} />
-      </Modal>
 
       {/* Add Current Attendance Modal */}
       <Modal

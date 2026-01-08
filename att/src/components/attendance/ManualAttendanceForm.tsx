@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { attendanceService } from '@/services/attendanceService';
 import { Button } from '@/components/common/Button';
 import { Subject } from '@/types/timetable';
 import { userLocalStorage } from '@/utils/userStorage';
@@ -17,10 +16,6 @@ interface SubjectAttendance {
 }
 
 export const ManualAttendanceForm: React.FC<ManualAttendanceFormProps> = ({ subjects, onSave }) => {
-  console.log('=== ManualAttendanceForm RENDER ===');
-  console.log('Total subjects received:', subjects.length);
-  console.log('All subjects:', subjects.map(s => `${s.subjectCode} - ${s.subjectName}`));
-  
   const [attendanceData, setAttendanceData] = useState<Record<string, { attended: string; total: string }>>({});
   const [isSaving, setIsSaving] = useState(false);
   const [isInitializing, setIsInitializing] = useState(true);
@@ -73,23 +68,38 @@ export const ManualAttendanceForm: React.FC<ManualAttendanceFormProps> = ({ subj
 
     try {
       // Save attendance data directly (no class instances needed for manual entry)
-      console.log('💾 Saving attendance data:', attendanceData);
+      // Get existing attendance from localStorage
+      const existingAttendanceStr = userLocalStorage.getItem('currentAttendance');
+      const existingAttendance = existingAttendanceStr ? JSON.parse(existingAttendanceStr) : [];
       
-      // Store in localStorage for now (can be integrated with backend later)
-      const attendanceSummary = Object.entries(attendanceData).map(([code, data]) => ({
+      // Create new attendance entries
+      const newEntries = Object.entries(attendanceData).map(([code, data]) => ({
         subjectCode: code,
         attended: parseInt(data.attended) || 0,
         total: parseInt(data.total) || 0,
         percentage: calculatePercentage(data.attended, data.total)
       }));
       
-      localStorage.setItem('currentAttendance', JSON.stringify(attendanceSummary));
-      userLocalStorage.setItem('currentAttendance', JSON.stringify(attendanceSummary));
-      console.log('✅ Attendance saved:', attendanceSummary);
+      // Merge with existing - update if subject exists, add if new
+      const mergedAttendance = [...existingAttendance];
+      newEntries.forEach(newEntry => {
+        const existingIndex = mergedAttendance.findIndex(e => e.subjectCode === newEntry.subjectCode);
+        if (existingIndex >= 0) {
+          // Update existing subject
+          mergedAttendance[existingIndex] = newEntry;
+        } else {
+          // Add new subject
+          mergedAttendance.push(newEntry);
+        }
+      });
+      
+      // Save merged attendance
+      localStorage.setItem('currentAttendance', JSON.stringify(mergedAttendance));
+      userLocalStorage.setItem('currentAttendance', JSON.stringify(mergedAttendance));
       
       setMessage({ 
         type: 'success', 
-        text: `Successfully saved attendance for ${attendanceSummary.length} subjects!` 
+        text: `Successfully saved attendance for ${newEntries.length} subjects! Total: ${mergedAttendance.length}` 
       });
       
       setTimeout(() => {
@@ -119,8 +129,6 @@ export const ManualAttendanceForm: React.FC<ManualAttendanceFormProps> = ({ subj
     subject.subjectName.toLowerCase().includes('lab') ||
     /\(lab\s*\d*\)/i.test(subject.subjectName)
   );
-  
-  console.log('Lab subjects found:', labSubjects.map(s => s.subjectCode));
 
   // Create a map of lab codes to their theory subject codes
   const labToTheoryMap = new Map<string, string>();
@@ -144,23 +152,16 @@ export const ManualAttendanceForm: React.FC<ManualAttendanceFormProps> = ({ subj
 
   // Filter and prepare subjects for display
   const displaySubjects = subjects.filter(subject => {
-    // Debug logging
-    console.log('Checking subject:', subject.subjectCode, subject.subjectName);
-    
     // Remove only LIBRARY and ADVISOR (keep free electives)
     if (subject.subjectCode.includes('LIBRARY') || 
         subject.subjectCode.includes('ADVISOR')) {
-      console.log('  → Filtered out (LIBRARY/ADVISOR)');
       return false;
     }
     
     // DON'T filter lab subjects - we'll handle merging differently
     // Just keep all subjects for now
-    console.log('  → Keeping subject');
     return true;
   });
-  
-  console.log('Final display subjects:', displaySubjects.map(s => s.subjectCode));
 
   // Check if a subject has an associated lab
   const hasLab = (subjectCode: string) => {

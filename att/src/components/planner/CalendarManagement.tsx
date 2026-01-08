@@ -10,7 +10,34 @@ export const CalendarManagement: React.FC = () => {
   const [newHoliday, setNewHoliday] = useState({ date: '', name: '', type: 'other' as const });
   const [newSaturday, setNewSaturday] = useState({ date: '', followsDay: 'Monday' as const });
 
-  if (!calendar) return null;
+  if (!calendar) {
+    return (
+      <div className="bg-yellow-50 dark:bg-yellow-900/20 border-2 border-yellow-300 dark:border-yellow-700 rounded-2xl p-6 mb-6">
+        <div className="flex items-center gap-3">
+          <svg className="w-6 h-6 text-yellow-600 dark:text-yellow-400" fill="currentColor" viewBox="0 0 20 20">
+            <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+          </svg>
+          <p className="text-yellow-800 dark:text-yellow-200 font-medium">
+            Calendar data not found. Please go to Upload page and upload your timetable and calendar files first.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // Filter out past dates (keep today and future dates)
+  // Get today's date in YYYY-MM-DD format for comparison
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const todayStr = today.toISOString().split('T')[0];
+  
+  // Calculate max date (5 years from now)
+  const maxDate = new Date();
+  maxDate.setFullYear(maxDate.getFullYear() + 5);
+  const maxDateStr = maxDate.toISOString().split('T')[0];
+  
+  const upcomingHolidays = calendar.holidays.filter((h) => h.date >= todayStr);
+  const upcomingSaturdays = calendar.saturdayOverrides.filter((s) => s.date >= todayStr);
 
   const handleAddHoliday = () => {
     if (newHoliday.date && newHoliday.name) {
@@ -54,8 +81,8 @@ export const CalendarManagement: React.FC = () => {
               value={newHoliday.date}
               onChange={(e) => setNewHoliday({ ...newHoliday, date: e.target.value })}
               className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg mb-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-              min={calendar.semesterStartDate}
-              max={calendar.semesterEndDate}
+              min={todayStr}
+              max={maxDateStr}
             />
             <input
               type="text"
@@ -92,10 +119,10 @@ export const CalendarManagement: React.FC = () => {
         )}
 
         <div className="space-y-2 max-h-60 overflow-y-auto">
-          {calendar.holidays.length === 0 ? (
-            <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-4">No holidays added</p>
+          {upcomingHolidays.length === 0 ? (
+            <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-4">No upcoming holidays</p>
           ) : (
-            calendar.holidays.map((holiday) => (
+            upcomingHolidays.map((holiday) => (
               <div
                 key={holiday.date}
                 className="flex items-center justify-between p-3 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-800"
@@ -140,8 +167,8 @@ export const CalendarManagement: React.FC = () => {
               value={newSaturday.date}
               onChange={(e) => setNewSaturday({ ...newSaturday, date: e.target.value })}
               className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg mb-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-              min={calendar.semesterStartDate}
-              max={calendar.semesterEndDate}
+              min={todayStr}
+              max={maxDateStr}
             />
             <select
               value={newSaturday.followsDay}
@@ -172,10 +199,10 @@ export const CalendarManagement: React.FC = () => {
         )}
 
         <div className="space-y-2 max-h-60 overflow-y-auto">
-          {calendar.saturdayOverrides.length === 0 ? (
-            <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-4">No Saturday working days added</p>
+          {upcomingSaturdays.length === 0 ? (
+            <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-4">No upcoming Saturday working days</p>
           ) : (
-            calendar.saturdayOverrides.map((override) => (
+            upcomingSaturdays.map((override) => (
               <div
                 key={override.date}
                 className="flex items-center justify-between p-3 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800"

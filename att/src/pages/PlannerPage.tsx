@@ -32,24 +32,28 @@ export const PlannerPage: React.FC = () => {
         endDate.toISOString().split('T')[0]
       );
 
-      // Filter out holidays and Sundays, but include Saturday overrides
+      // Include all dates except Sundays
       const workingDates = dates.filter((date) => {
         const dayOfWeek = getDayOfWeek(date);
+        
+        // Sundays are always off
+        if (dayOfWeek === 'Sunday') return false;
         
         // Check if this is a Saturday override (working Saturday)
         const isSaturdayOverride = calendar.saturdayOverrides.some((o) => o.date === date);
         
-        // Sundays are always off (unless it's a Saturday override, but that doesn't make sense)
-        if (dayOfWeek === 'Sunday') return false;
-        
-        // Check if it's a holiday
+        // Check if it's a holiday - KEEP holidays to display them
         const isHoliday = calendar.holidays.some((h) => h.date === date);
-        if (isHoliday) return false;
-
-        // Saturdays are off by default unless overridden
-        if (dayOfWeek === 'Saturday' && !isSaturdayOverride) return false;
-
-        return true;
+        
+        // Include if:
+        // - It's a regular weekday (Mon-Fri)
+        // - It's a Saturday with override
+        // - It's a holiday (to show it in the planner)
+        if (dayOfWeek === 'Saturday') {
+          return isSaturdayOverride || isHoliday;
+        }
+        
+        return true; // Include all weekdays and holidays
       });
 
       setDateRange(workingDates);

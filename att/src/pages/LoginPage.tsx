@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { LogIn, Sparkles, Shield, Zap, Users } from 'lucide-react';
+import { Sparkles, Shield, Zap } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { signInWithGoogle } from '@/services/firebase';
 
@@ -56,23 +56,19 @@ export const LoginPage: React.FC = () => {
             </div>
           </div>
 
-          <p className="text-2xl font-bold text-neutral-800 dark:text-neutral-200">
-            Never worry about attendance again 🎯
+          <p className="text-xl font-bold text-neutral-800 dark:text-neutral-200 leading-snug">
+            Upload your timetable JSON and plan ahead.
           </p>
 
-          <div className="space-y-4">
-            {[
-              { icon: Shield, text: 'Secure Google Authentication', color: 'text-emerald-600' },
-              { icon: Zap, text: 'Real-time Attendance Tracking', color: 'text-amber-600' },
-              { icon: Users, text: 'Personalized for Each Student', color: 'text-blue-600' },
-            ].map((feature, idx) => (
-              <div key={idx} className="flex items-center gap-4 p-4 bg-white/50 dark:bg-neutral-900/50 backdrop-blur-xl rounded-2xl border border-neutral-200 dark:border-neutral-800">
-                <div className={`w-12 h-12 rounded-xl ${feature.color} bg-opacity-10 flex items-center justify-center`}>
-                  <feature.icon className={`w-6 h-6 ${feature.color}`} />
-                </div>
-                <span className="font-semibold text-neutral-700 dark:text-neutral-300">{feature.text}</span>
-              </div>
-            ))}
+          <div className="space-y-3 text-neutral-700 dark:text-neutral-300">
+            <div className="flex items-start gap-3">
+              <Shield className="w-5 h-5 text-emerald-600 mt-0.5" />
+              <p className="text-sm">Google sign-in keeps your data separated per account.</p>
+            </div>
+            <div className="flex items-start gap-3">
+              <Zap className="w-5 h-5 text-amber-600 mt-0.5" />
+              <p className="text-sm">See warnings early and stay above 75%.</p>
+            </div>
           </div>
         </div>
 
@@ -81,7 +77,7 @@ export const LoginPage: React.FC = () => {
           <div className="glass rounded-3xl shadow-soft-lg p-8 md:p-12 space-y-8">
             <div className="text-center space-y-2">
               <h2 className="text-3xl font-black text-neutral-900 dark:text-white">Welcome Back!</h2>
-              <p className="text-neutral-600 dark:text-neutral-400">Sign in to access your attendance planner</p>
+              <p className="text-neutral-600 dark:text-neutral-400">Sign in to continue</p>
             </div>
 
             {error && (
@@ -125,7 +121,7 @@ export const LoginPage: React.FC = () => {
               </div>
               
               <p className="text-sm text-neutral-600 dark:text-neutral-400">
-                We use Google OAuth for secure, hassle-free authentication. Your data is protected and we never access your Google account.
+                We use Google OAuth for secure, hassle-free authentication.
               </p>
             </div>
           </div>
