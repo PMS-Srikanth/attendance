@@ -13,7 +13,13 @@ import { AttendanceSummary, SubjectAttendance } from '@/types/attendance';
 import { calculatePercentage } from '@/utils/statusUtils';
 import { addDays, format, startOfDay } from 'date-fns';
 import { getDayOfWeek } from '@/utils/dateUtils';
-import { adjustCurrentAttendanceWithBaseline, bumpCurrentAttendance, ensureCurrentAttendanceBaseline, getCurrentAttendance } from '@/utils/currentAttendance';
+import {
+  adjustCurrentAttendanceWithBaseline,
+  bumpCurrentAttendance,
+  ensureCurrentAttendanceBaseline,
+  getCurrentAttendance,
+  getCurrentAttendanceBaseline,
+} from '@/utils/currentAttendance';
 import { getDailyLog, removeDailyLog, upsertDailyLog } from '@/utils/dailyAttendance';
 import type { DailyAttendanceLog } from '@/utils/dailyAttendance';
 import type { CalendarData } from '@/types/calendar';
@@ -126,6 +132,22 @@ export const SummaryPage: React.FC = () => {
   const [summary, setSummary] = useState<AttendanceSummary | null>(null);
   const [attendanceBump, setAttendanceBump] = useState(0);
   const [todayMessage, setTodayMessage] = useState<string | null>(null);
+
+  const baselineMap = useMemo(() => {
+    const map = new Map<string, { attended: number; total: number }>();
+    getCurrentAttendanceBaseline().forEach((x) => {
+      map.set(x.subjectCode, { attended: x.attended ?? 0, total: x.total ?? 0 });
+    });
+    return map;
+  }, [attendanceBump]);
+
+  const currentMap = useMemo(() => {
+    const map = new Map<string, { attended: number; total: number }>();
+    getCurrentAttendance().forEach((x) => {
+      map.set(x.subjectCode, { attended: x.attended ?? 0, total: x.total ?? 0 });
+    });
+    return map;
+  }, [attendanceBump]);
 
   useEffect(() => {
     if (!timetable) return;
@@ -345,6 +367,12 @@ export const SummaryPage: React.FC = () => {
     setAttendanceBump((x) => x + 1);
   };
 
+  const handleQuickAdjustDown = (subjectCode: string, deltaAttended: number, deltaTotal: number) => {
+    ensureCurrentAttendanceBaseline();
+    adjustCurrentAttendanceWithBaseline(subjectCode, { attended: deltaAttended, total: deltaTotal });
+    setAttendanceBump((x) => x + 1);
+  };
+
   const handleMarkToday = (mode: 'present' | 'absent') => {
     if (!timetable || !calendar) return;
 
@@ -476,6 +504,50 @@ export const SummaryPage: React.FC = () => {
             {code} {props.label}
           </button>
         ))}
+      </div>
+    );
+  };
+
+  const QuickDownButton = (
+    props: {
+      subjectCodes: string[];
+      deltaAttended: number;
+      deltaTotal: number;
+      className: string;
+      label: string;
+      disabledFor: (subjectCode: string) => boolean;
+    }
+  ) => {
+    if (props.subjectCodes.length <= 1) {
+      const code = props.subjectCodes[0];
+      const disabled = props.disabledFor(code);
+      return (
+        <button
+          onClick={() => handleQuickAdjustDown(code, props.deltaAttended, props.deltaTotal)}
+          disabled={disabled}
+          className={`${props.className} ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+        >
+          {props.label}
+        </button>
+      );
+    }
+
+    return (
+      <div className="flex flex-col gap-2 items-center">
+        {props.subjectCodes.map((code) => {
+          const disabled = props.disabledFor(code);
+          return (
+            <button
+              key={code}
+              onClick={() => handleQuickAdjustDown(code, props.deltaAttended, props.deltaTotal)}
+              disabled={disabled}
+              className={`${props.className} ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+              title={code}
+            >
+              {code} {props.label}
+            </button>
+          );
+        })}
       </div>
     );
   };
@@ -719,7 +791,9 @@ export const SummaryPage: React.FC = () => {
                 <tr>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Subject</th>
                   <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Now</th>
+                  <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">- Present</th>
                   <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">+ Present</th>
+                  <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">- Absent</th>
                   <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">+ Absent</th>
                   <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Next 14d</th>
                 </tr>
@@ -735,12 +809,41 @@ export const SummaryPage: React.FC = () => {
                       {s.attendedClasses}/{s.totalClasses} ({s.currentPercentage.toFixed(1)}%)
                     </td>
                     <td className="px-4 py-3 text-center">
+                      <QuickDownButton
+                        subjectCodes={s.relatedSubjectCodes}
+                        deltaAttended={-1}
+                        deltaTotal={-1}
+                        label="-1"
+                        className="px-3 py-1.5 rounded-lg bg-rose-600 text-white text-sm font-semibold hover:bg-rose-700 transition"
+                        disabledFor={(code) => {
+                          const base = baselineMap.get(code) ?? { attended: 0, total: 0 };
+                          const cur = currentMap.get(code) ?? { attended: 0, total: 0 };
+                          return cur.attended <= base.attended || cur.total <= base.total;
+                        }}
+                      />
+                    </td>
+                    <td className="px-4 py-3 text-center">
                       <QuickBumpButton
                         subjectCodes={s.relatedSubjectCodes}
                         deltaAttended={1}
                         deltaTotal={1}
                         label="+1"
                         className="px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-sm font-semibold hover:bg-emerald-700 transition"
+                      />
+                    </td>
+                    <td className="px-4 py-3 text-center">
+                      <QuickDownButton
+                        subjectCodes={s.relatedSubjectCodes}
+                        deltaAttended={0}
+                        deltaTotal={-1}
+                        label="-1"
+                        className="px-3 py-1.5 rounded-lg bg-rose-600 text-white text-sm font-semibold hover:bg-rose-700 transition"
+                        disabledFor={(code) => {
+                          const base = baselineMap.get(code) ?? { attended: 0, total: 0 };
+                          const cur = currentMap.get(code) ?? { attended: 0, total: 0 };
+                          // Can't go below baseline total; also can't reduce total below attended (would be no-op)
+                          return cur.total <= base.total || cur.total <= cur.attended;
+                        }}
                       />
                     </td>
                     <td className="px-4 py-3 text-center">
