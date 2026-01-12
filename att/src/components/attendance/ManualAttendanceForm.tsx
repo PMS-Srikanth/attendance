@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/common/Button';
 import { Subject } from '@/types/timetable';
-import { userLocalStorage } from '@/utils/userStorage';
+import { getCurrentAttendance, setCurrentAttendance } from '@/utils/currentAttendance';
 
 interface ManualAttendanceFormProps {
   subjects: Subject[];
@@ -21,9 +21,22 @@ export const ManualAttendanceForm: React.FC<ManualAttendanceFormProps> = ({ subj
   const [isInitializing, setIsInitializing] = useState(true);
   const [message, setMessage] = useState<{ type: 'success' | 'error' | 'warning'; text: string } | null>(null);
 
-  // No need to auto-generate classes - user is providing existing attendance data
+  // Load existing attendance once so the user can continue from previous values
   useEffect(() => {
-    setIsInitializing(false);
+    try {
+      const existing = getCurrentAttendance();
+      if (existing.length > 0) {
+        const seed: Record<string, { attended: string; total: string }> = {};
+        existing.forEach((x) => {
+          seed[x.subjectCode] = { attended: String(x.attended ?? 0), total: String(x.total ?? 0) };
+        });
+        setAttendanceData(seed);
+      }
+    } catch {
+      // ignore
+    } finally {
+      setIsInitializing(false);
+    }
   }, []);
 
   const handleInputChange = (subjectCode: string, field: 'attended' | 'total', value: string) => {
@@ -67,40 +80,56 @@ export const ManualAttendanceForm: React.FC<ManualAttendanceFormProps> = ({ subj
     setMessage(null);
 
     try {
-      // Save attendance data directly (no class instances needed for manual entry)
-      // Get existing attendance from localStorage
-      const existingAttendanceStr = userLocalStorage.getItem('currentAttendance');
-      const existingAttendance = existingAttendanceStr ? JSON.parse(existingAttendanceStr) : [];
+      const existingAttendance = getCurrentAttendance();
       
       // Create new attendance entries
-      const newEntries = Object.entries(attendanceData).map(([code, data]) => ({
-        subjectCode: code,
-        attended: parseInt(data.attended) || 0,
-        total: parseInt(data.total) || 0,
-        percentage: calculatePercentage(data.attended, data.total)
-      }));
+      const newEntries = Object.entries(attendanceData)
+        .filter(([_, data]) => (data.attended ?? '').toString().length > 0 || (data.total ?? '').toString().length > 0)
+        .map(([code, data]) => ({
+          subjectCode: code,
+          attended: parseInt(data.attended) || 0,
+          total: parseInt(data.total) || 0,
+          percentage: calculatePercentage(data.attended, data.total)
+        }));
       
-      // Merge with existing - update if subject exists, add if new
+      // Merge with existing - NEVER decrease existing values
       const mergedAttendance = [...existingAttendance];
-      newEntries.forEach(newEntry => {
-        const existingIndex = mergedAttendance.findIndex(e => e.subjectCode === newEntry.subjectCode);
+      const decreased: string[] = [];
+      newEntries.forEach((newEntry) => {
+        const existingIndex = mergedAttendance.findIndex((e) => e.subjectCode === newEntry.subjectCode);
         if (existingIndex >= 0) {
-          // Update existing subject
-          mergedAttendance[existingIndex] = newEntry;
+          const prev = mergedAttendance[existingIndex];
+          const nextAttended = Math.max(prev.attended ?? 0, newEntry.attended ?? 0);
+          const nextTotal = Math.max(prev.total ?? 0, newEntry.total ?? 0);
+
+          if ((newEntry.attended ?? 0) < (prev.attended ?? 0) || (newEntry.total ?? 0) < (prev.total ?? 0)) {
+            decreased.push(newEntry.subjectCode);
+          }
+
+          mergedAttendance[existingIndex] = {
+            ...prev,
+            attended: nextAttended,
+            total: nextTotal,
+            percentage: calculatePercentage(String(nextAttended), String(nextTotal)),
+          };
         } else {
-          // Add new subject
           mergedAttendance.push(newEntry);
         }
       });
       
-      // Save merged attendance
-      localStorage.setItem('currentAttendance', JSON.stringify(mergedAttendance));
-      userLocalStorage.setItem('currentAttendance', JSON.stringify(mergedAttendance));
-      
-      setMessage({ 
-        type: 'success', 
-        text: `Successfully saved attendance for ${newEntries.length} subjects! Total: ${mergedAttendance.length}` 
-      });
+      setCurrentAttendance(mergedAttendance);
+
+      if (decreased.length > 0) {
+        setMessage({
+          type: 'warning',
+          text: `Saved. Note: we ignored decreases for ${decreased.join(', ')} (current attendance only goes up).`,
+        });
+      } else {
+        setMessage({
+          type: 'success',
+          text: `Successfully saved attendance for ${newEntries.length} subjects! Total: ${mergedAttendance.length}`
+        });
+      }
       
       setTimeout(() => {
         onSave();

@@ -53,8 +53,8 @@ export function bumpCurrentAttendance(
 
   const next: CurrentAttendanceItem = {
     subjectCode,
-    attended: Math.max(0, current.attended + (delta.attended ?? 0)),
-    total: Math.max(0, current.total + (delta.total ?? 0)),
+    attended: Math.max(0, current.attended + Math.max(0, delta.attended ?? 0)),
+    total: Math.max(0, current.total + Math.max(0, delta.total ?? 0)),
   };
 
   if (index >= 0) {

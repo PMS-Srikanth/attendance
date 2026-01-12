@@ -70,6 +70,10 @@ function resolveAcademicDay(dateIso: string, calendar: CalendarData): TimetableD
   return dow as any;
 }
 
+function isHoliday(dateIso: string, calendar: CalendarData): boolean {
+  return calendar.holidays.some((h) => h.date === dateIso);
+}
+
 function countUpcomingClasses(
   timetable: TimetableData,
   calendar: CalendarData,
@@ -338,6 +342,34 @@ export const SummaryPage: React.FC = () => {
     setAttendanceBump((x) => x + 1);
   };
 
+  const handleMarkToday = (mode: 'present' | 'absent') => {
+    if (!timetable || !calendar) return;
+
+    const today = startOfDay(new Date());
+    const dateIso = today.toISOString().split('T')[0];
+    const academicDay = resolveAcademicDay(dateIso, calendar);
+    if (!academicDay) return;
+
+    const todaysEntries = timetable.entries.filter((e) => e.day === academicDay);
+    if (todaysEntries.length === 0) return;
+
+    // Count occurrences per subjectCode (some subjects may appear multiple periods)
+    const counts = new Map<string, number>();
+    todaysEntries.forEach((e) => {
+      counts.set(e.subjectCode, (counts.get(e.subjectCode) ?? 0) + 1);
+    });
+
+    counts.forEach((count, subjectCode) => {
+      if (mode === 'present') {
+        bumpCurrentAttendance(subjectCode, { attended: count, total: count });
+      } else {
+        bumpCurrentAttendance(subjectCode, { attended: 0, total: count });
+      }
+    });
+
+    setAttendanceBump((x) => x + 1);
+  };
+
   const QuickBumpButton = (
     props: {
       subjectCodes: string[];
@@ -472,7 +504,7 @@ export const SummaryPage: React.FC = () => {
             <div>
               <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Quick Daily Update</h2>
               <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                Add today’s class in one click (no need to go back to the planner).
+                Add today’s classes in one click (your current attendance only goes up).
               </p>
             </div>
           </div>
@@ -483,6 +515,51 @@ export const SummaryPage: React.FC = () => {
             </div>
           ) : null}
 
+          {calendar && timetable ? (() => {
+            const today = startOfDay(new Date());
+            const dateIso = today.toISOString().split('T')[0];
+            const academicDay = resolveAcademicDay(dateIso, calendar);
+            const holiday = isHoliday(dateIso, calendar);
+            const dow = getDayOfWeek(dateIso);
+            const disabled = !academicDay || holiday;
+            const label = holiday
+              ? 'Today is a holiday (no classes)'
+              : dow === 'Sunday'
+              ? 'Sunday (no classes)'
+              : !academicDay
+              ? 'No working schedule for today'
+              : `Today follows: ${academicDay}`;
+
+            return (
+              <div className="mt-4 flex flex-col md:flex-row md:items-center md:justify-between gap-3 p-4 rounded-2xl border border-gray-200 dark:border-gray-700 bg-gray-50/60 dark:bg-gray-900/30">
+                <div>
+                  <div className="text-sm font-semibold text-gray-900 dark:text-white">{dateIso}</div>
+                  <div className="text-xs text-gray-600 dark:text-gray-400">{label}</div>
+                </div>
+                <div className="flex flex-col sm:flex-row gap-3">
+                  <button
+                    onClick={() => handleMarkToday('present')}
+                    disabled={disabled}
+                    className={`px-4 py-2 rounded-xl text-sm font-bold text-white transition shadow-lg ${
+                      disabled ? 'bg-gray-400 cursor-not-allowed' : 'bg-emerald-600 hover:bg-emerald-700'
+                    }`}
+                  >
+                    Mark today as Present
+                  </button>
+                  <button
+                    onClick={() => handleMarkToday('absent')}
+                    disabled={disabled}
+                    className={`px-4 py-2 rounded-xl text-sm font-bold text-white transition shadow-lg ${
+                      disabled ? 'bg-gray-400 cursor-not-allowed' : 'bg-amber-600 hover:bg-amber-700'
+                    }`}
+                  >
+                    Mark today as Absent
+                  </button>
+                </div>
+              </div>
+            );
+          })() : null}
+
           <div className="mt-6 overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
               <thead className="bg-gray-50 dark:bg-gray-900/40">
@@ -491,7 +568,6 @@ export const SummaryPage: React.FC = () => {
                   <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Now</th>
                   <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">+ Present</th>
                   <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">+ Absent</th>
-                  <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Undo</th>
                   <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Next 14d</th>
                 </tr>
               </thead>
@@ -521,15 +597,6 @@ export const SummaryPage: React.FC = () => {
                         deltaTotal={1}
                         label="+1"
                         className="px-3 py-1.5 rounded-lg bg-amber-600 text-white text-sm font-semibold hover:bg-amber-700 transition"
-                      />
-                    </td>
-                    <td className="px-4 py-3 text-center">
-                      <QuickBumpButton
-                        subjectCodes={s.relatedSubjectCodes}
-                        deltaAttended={-1}
-                        deltaTotal={-1}
-                        label="-1"
-                        className="px-3 py-1.5 rounded-lg bg-gray-700 text-white text-sm font-semibold hover:bg-gray-800 transition"
                       />
                     </td>
                     <td className="px-4 py-3 text-center text-sm text-gray-700 dark:text-gray-300">
