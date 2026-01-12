@@ -13,6 +13,7 @@ import { AttendanceSummary, SubjectAttendance } from '@/types/attendance';
 import { calculatePercentage } from '@/utils/statusUtils';
 import { addDays, format, startOfDay } from 'date-fns';
 import { getDayOfWeek } from '@/utils/dateUtils';
+import { openAttendanceReportInNewTab } from '@/utils/reportWindow';
 import {
   adjustCurrentAttendanceWithBaseline,
   bumpCurrentAttendance,
@@ -105,23 +106,8 @@ function countUpcomingClasses(
   return count;
 }
 
-function csvEscape(value: unknown): string {
-  const s = value == null ? '' : String(value);
-  if (/[\n\r",]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
-  return s;
-}
 
-function downloadTextFile(filename: string, content: string, mimeType: string) {
-  const blob = new Blob([content], { type: mimeType });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  URL.revokeObjectURL(url);
-}
+// Report export opens a new tab (no file download)
 
 export const SummaryPage: React.FC = () => {
   const navigate = useNavigate();
@@ -320,49 +306,26 @@ export const SummaryPage: React.FC = () => {
     if (!summary || !timetable) return;
 
     const generatedAt = new Date().toISOString();
-    const filenameDate = generatedAt.replace(/:/g, '-');
-
-    // CSV export (easy to open in Excel/Sheets)
-    const lines: string[] = [];
-    lines.push(['Generated At', generatedAt].map(csvEscape).join(','));
-    lines.push(['Threshold', `${THRESHOLD_PERCENT}%`].map(csvEscape).join(','));
-    lines.push(['Plan Window', `${PLAN_DAYS} days (from today)`].map(csvEscape).join(','));
-    lines.push(['Overall Attendance', `${summary.overallPercentage.toFixed(1)}% (${summary.totalAttended}/${summary.totalClasses})`].map(csvEscape).join(','));
-    lines.push('');
-
-    lines.push(
-      [
-        'Subject Code',
-        'Subject Name',
-        'Attended',
-        'Total',
-        'Current %',
-        `Upcoming Classes (${PLAN_DAYS}d)`,
-        `Need to Attend in Next ${PLAN_DAYS}d to Reach ${THRESHOLD_PERCENT}%`,
-        `Can Miss in Next ${PLAN_DAYS}d and Still Stay >= ${THRESHOLD_PERCENT}%`,
-        `Classes to Attend to Reach ${THRESHOLD_PERCENT}% (overall)`,
-        `Classes Can Miss Before Below ${THRESHOLD_PERCENT}% (overall)`,
-      ].map(csvEscape).join(',')
-    );
-
-    reportSubjects.forEach((s) => {
-      lines.push(
-        [
-          s.subjectCode,
-          s.subjectName,
-          s.attendedClasses,
-          s.totalClasses,
-          s.currentPercentage.toFixed(1),
-          s.upcomingClasses14,
-          s.minAttendNext14ToReach75,
-          s.maxMissNext14AndStay75,
-          s.classesToAttendToReach75,
-          s.classesCanMissBeforeBelow75,
-        ].map(csvEscape).join(',')
-      );
+    openAttendanceReportInNewTab({
+      generatedAtIso: generatedAt,
+      thresholdPercent: THRESHOLD_PERCENT,
+      planDays: PLAN_DAYS,
+      overallPercent: summary.overallPercentage,
+      overallAttended: summary.totalAttended,
+      overallTotal: summary.totalClasses,
+      rows: reportSubjects.map((s) => ({
+        subjectCode: s.subjectCode,
+        subjectName: s.subjectName,
+        attended: s.attendedClasses,
+        total: s.totalClasses,
+        currentPercent: s.currentPercentage,
+        upcomingClasses: s.upcomingClasses14,
+        minAttendNextDaysToReachThreshold: s.minAttendNext14ToReach75,
+        maxMissNextDaysAndStayThreshold: s.maxMissNext14AndStay75,
+        classesToAttendToReachThresholdOverall: s.classesToAttendToReach75,
+        classesCanMissBeforeBelowThresholdOverall: s.classesCanMissBeforeBelow75,
+      })),
     });
-
-    downloadTextFile(`attendance-report-${filenameDate}.csv`, lines.join('\n'), 'text/csv;charset=utf-8');
   };
 
   const handleQuickBump = (subjectCode: string, deltaAttended: number, deltaTotal: number) => {
