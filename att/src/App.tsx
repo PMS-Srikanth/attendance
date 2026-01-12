@@ -8,6 +8,7 @@ import { UploadPage } from './pages/UploadPage';
 import { ReviewPage } from './pages/ReviewPage';
 import { PlannerPage } from './pages/PlannerPage';
 import { SummaryPage } from './pages/SummaryPage';
+import { ReportPage } from './pages/ReportPage';
 
 const App = () => {
   return (
@@ -17,6 +18,14 @@ const App = () => {
           <div className="min-h-screen bg-gradient-primary transition-all duration-300">
             <Routes>
               <Route path="/login" element={<LoginPage />} />
+              <Route
+                path="/report"
+                element={
+                  <ProtectedRoute>
+                    <ReportPage />
+                  </ProtectedRoute>
+                }
+              />
               <Route
                 path="/*"
                 element={
