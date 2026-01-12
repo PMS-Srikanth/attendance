@@ -15,8 +15,7 @@ export interface DailyAttendanceLog {
 
 const STORAGE_KEY = 'dailyAttendanceLog';
 
-function readAll(): Record<string, DailyAttendanceLog> {
-  const raw = userLocalStorage.getItem(STORAGE_KEY) ?? localStorage.getItem(STORAGE_KEY);
+function parseMap(raw: string | null): Record<string, DailyAttendanceLog> {
   if (!raw) return {};
   try {
     const parsed = JSON.parse(raw);
@@ -25,6 +24,20 @@ function readAll(): Record<string, DailyAttendanceLog> {
   } catch {
     return {};
   }
+}
+
+function mergeMaps(
+  a: Record<string, DailyAttendanceLog>,
+  b: Record<string, DailyAttendanceLog>
+): Record<string, DailyAttendanceLog> {
+  const out: Record<string, DailyAttendanceLog> = { ...b, ...a };
+  return out;
+}
+
+function readAll(): Record<string, DailyAttendanceLog> {
+  const userRaw = userLocalStorage.getItem(STORAGE_KEY);
+  const legacyRaw = localStorage.getItem(STORAGE_KEY);
+  return mergeMaps(parseMap(userRaw), parseMap(legacyRaw));
 }
 
 function writeAll(map: Record<string, DailyAttendanceLog>): void {

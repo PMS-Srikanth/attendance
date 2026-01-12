@@ -19,6 +19,8 @@ import {
   ensureCurrentAttendanceBaseline,
   getCurrentAttendance,
   getCurrentAttendanceBaseline,
+  sanitizeCurrentAttendance,
+  sanitizeCurrentAttendanceBaseline,
 } from '@/utils/currentAttendance';
 import { getDailyLog, removeDailyLog, upsertDailyLog } from '@/utils/dailyAttendance';
 import type { DailyAttendanceLog } from '@/utils/dailyAttendance';
@@ -151,6 +153,10 @@ export const SummaryPage: React.FC = () => {
 
   useEffect(() => {
     if (!timetable) return;
+
+    // Fix any previously-stored invalid values (e.g. attended > total) so % never exceeds 100.
+    sanitizeCurrentAttendance();
+    sanitizeCurrentAttendanceBaseline();
 
     // Load saved attendance (manual/current attendance) from storage
     const savedAttendance = getCurrentAttendance();
@@ -462,7 +468,8 @@ export const SummaryPage: React.FC = () => {
     } else {
       // Increase attended by 1, up to totalDelta
       if (entry.attendedDelta >= entry.totalDelta) return;
-      bumpCurrentAttendance(subjectCode, { attended: 1, total: 0 });
+      // Keep invariant attended <= total by clamping with baseline-aware adjust
+      adjustCurrentAttendanceWithBaseline(subjectCode, { attended: 1, total: 0 });
       entry.attendedDelta += 1;
     }
 
