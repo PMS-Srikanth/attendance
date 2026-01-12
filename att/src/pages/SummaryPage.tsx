@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Download } from 'lucide-react';
 import { Button } from '@/components/common/Button';
@@ -8,40 +8,130 @@ import { SummaryTable } from '@/components/summary/SummaryTable';
 import { useAttendanceStore } from '@/store/useAttendanceStore';
 import { usePlannerStore } from '@/store/usePlannerStore';
 import { useTimetableStore } from '@/store/useTimetableStore';
+import { useCalendarStore } from '@/store/useCalendarStore';
 import { AttendanceSummary, SubjectAttendance } from '@/types/attendance';
 import { calculatePercentage } from '@/utils/statusUtils';
-import { userLocalStorage } from '@/utils/userStorage';
+import { addDays, startOfDay } from 'date-fns';
+import { getDayOfWeek } from '@/utils/dateUtils';
+import { bumpCurrentAttendance, getCurrentAttendance } from '@/utils/currentAttendance';
+import type { CalendarData } from '@/types/calendar';
+import type { TimetableData } from '@/types/timetable';
+
+type SubjectAttendanceWithPlan = SubjectAttendance & {
+  relatedSubjectCodes: string[];
+  upcomingClasses14: number;
+  minAttendNext14ToReach75: number;
+  maxMissNext14AndStay75: number;
+  classesToAttendToReach75: number;
+  classesCanMissBeforeBelow75: number;
+};
+
+const THRESHOLD_PERCENT = 75;
+const THRESHOLD = THRESHOLD_PERCENT / 100;
+const PLAN_DAYS = 14;
+
+function ceilPositive(n: number): number {
+  if (!Number.isFinite(n)) return 0;
+  return Math.max(0, Math.ceil(n));
+}
+
+function clampInt(n: number, min: number, max: number): number {
+  if (!Number.isFinite(n)) return min;
+  return Math.max(min, Math.min(max, Math.trunc(n)));
+}
+
+function classesToAttendToReachThreshold(attended: number, total: number, threshold: number): number {
+  if (total <= 0) return attended > 0 ? 0 : 1;
+  // (a + x) / (t + x) >= threshold
+  // x >= (threshold*t - a) / (1 - threshold)
+  const needed = (threshold * total - attended) / (1 - threshold);
+  return ceilPositive(needed);
+}
+
+function classesCanMissBeforeBelowThreshold(attended: number, total: number, threshold: number): number {
+  if (total <= 0) return 0;
+  // attended / (total + x) >= threshold  => x <= attended/threshold - total
+  const max = Math.floor(attended / threshold - total);
+  return Math.max(0, max);
+}
+
+function resolveAcademicDay(dateIso: string, calendar: CalendarData): TimetableData['entries'][number]['day'] | null {
+  const dow = getDayOfWeek(dateIso);
+  if (dow === 'Sunday') return null;
+
+  const isHoliday = calendar.holidays.some((h) => h.date === dateIso);
+  if (isHoliday) return null;
+
+  if (dow === 'Saturday') {
+    const override = calendar.saturdayOverrides.find((o) => o.date === dateIso);
+    return override ? (override.followsDay as any) : null;
+  }
+
+  return dow as any;
+}
+
+function countUpcomingClasses(
+  timetable: TimetableData,
+  calendar: CalendarData,
+  subjectCodes: string[],
+  days: number
+): number {
+  const today = startOfDay(new Date());
+  const end = addDays(today, days - 1);
+
+  let count = 0;
+  for (let d = today; d <= end; d = addDays(d, 1)) {
+    const dateIso = d.toISOString().split('T')[0];
+    const academicDay = resolveAcademicDay(dateIso, calendar);
+    if (!academicDay) continue;
+
+    count += timetable.entries.filter(
+      (e) => e.day === academicDay && subjectCodes.includes(e.subjectCode)
+    ).length;
+  }
+
+  return count;
+}
+
+function csvEscape(value: unknown): string {
+  const s = value == null ? '' : String(value);
+  if (/[\n\r",]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
+  return s;
+}
+
+function downloadTextFile(filename: string, content: string, mimeType: string) {
+  const blob = new Blob([content], { type: mimeType });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
 
 export const SummaryPage: React.FC = () => {
   const navigate = useNavigate();
   const { records } = useAttendanceStore();
   const { plannedRecords } = usePlannerStore();
   const { timetable } = useTimetableStore();
+  const { calendar } = useCalendarStore();
   const [summary, setSummary] = useState<AttendanceSummary | null>(null);
+  const [attendanceBump, setAttendanceBump] = useState(0);
 
   useEffect(() => {
     if (!timetable) return;
 
-    // Load saved attendance from localStorage
-    const savedAttendance = userLocalStorage.getItem('currentAttendance');
+    // Load saved attendance (manual/current attendance) from storage
+    const savedAttendance = getCurrentAttendance();
     const attendanceMap = new Map<string, { attended: number; total: number }>();
-    
-    if (savedAttendance) {
-      try {
-        const parsed = JSON.parse(savedAttendance);
-        parsed.forEach((item: any) => {
-          attendanceMap.set(item.subjectCode, {
-            attended: item.attended,
-            total: item.total
-          });
-        });
-      } catch (error) {
-        console.error('Failed to parse saved attendance:', error);
-      }
-    }
+    savedAttendance.forEach((item) => {
+      attendanceMap.set(item.subjectCode, { attended: item.attended, total: item.total });
+    });
 
     // Calculate summary
-    const subjectSummaries: SubjectAttendance[] = timetable.subjects
+    const subjectSummaries: SubjectAttendanceWithPlan[] = timetable.subjects
       .filter(subject => {
         const codeLower = subject.subjectCode.toLowerCase();
         const nameLower = subject.subjectName.toLowerCase();
@@ -119,6 +209,30 @@ export const SummaryPage: React.FC = () => {
         // Display with "(includes Lab)" if it has a lab component
         const displayName = labSubject ? `${subject.subjectName} (includes Lab)` : subject.subjectName;
 
+        const relatedSubjectCodes = [subject.subjectCode];
+        if (labSubject) relatedSubjectCodes.push(labSubject.subjectCode);
+
+        const upcomingClasses14 = timetable && calendar
+          ? countUpcomingClasses(timetable, calendar, relatedSubjectCodes, PLAN_DAYS)
+          : 0;
+
+        const classesToAttendToReach75 = classesToAttendToReachThreshold(attendedClasses, totalClasses, THRESHOLD);
+        const classesCanMissBeforeBelow75 = classesCanMissBeforeBelowThreshold(attendedClasses, totalClasses, THRESHOLD);
+
+        // In the next N classes (within next 14 days), how many must be attended to reach 75% by end of window
+        const minAttendNext14ToReach75 = clampInt(
+          Math.ceil(THRESHOLD * (totalClasses + upcomingClasses14) - attendedClasses),
+          0,
+          upcomingClasses14
+        );
+
+        // In the next N classes, how many can be missed (while attending the rest) and still stay >= 75%
+        const maxMissNext14AndStay75 = clampInt(
+          Math.floor(attendedClasses + upcomingClasses14 - THRESHOLD * (totalClasses + upcomingClasses14)),
+          0,
+          upcomingClasses14
+        );
+
         acc.push({
           subjectCode: subject.subjectCode,
           subjectName: displayName,
@@ -130,10 +244,16 @@ export const SummaryPage: React.FC = () => {
           projectedPercentage,
           isBelowThreshold: currentPercentage < 75,
           willBeBelowThreshold: projectedPercentage < 75,
+          relatedSubjectCodes,
+          upcomingClasses14,
+          minAttendNext14ToReach75,
+          maxMissNext14AndStay75,
+          classesToAttendToReach75,
+          classesCanMissBeforeBelow75,
         });
         
         return acc;
-      }, [] as SubjectAttendance[]);
+      }, [] as SubjectAttendanceWithPlan[]);
 
     const totalClasses = subjectSummaries.reduce((sum, s) => sum + s.totalClasses, 0);
     const totalAttended = subjectSummaries.reduce((sum, s) => sum + s.attendedClasses, 0);
@@ -145,7 +265,12 @@ export const SummaryPage: React.FC = () => {
       totalClasses,
       totalAttended,
     });
-  }, [records, plannedRecords, timetable]);
+  }, [records, plannedRecords, timetable, calendar, attendanceBump]);
+
+  const reportSubjects = useMemo(() => {
+    if (!summary) return [] as SubjectAttendanceWithPlan[];
+    return summary.subjects as SubjectAttendanceWithPlan[];
+  }, [summary]);
 
   if (!summary) {
     return (
@@ -160,8 +285,94 @@ export const SummaryPage: React.FC = () => {
   }
 
   const handleExport = () => {
-    // Export functionality would call the API here
-    alert('Export functionality would be implemented here');
+    if (!summary || !timetable) return;
+
+    const generatedAt = new Date().toISOString();
+    const filenameDate = generatedAt.replace(/:/g, '-');
+
+    // CSV export (easy to open in Excel/Sheets)
+    const lines: string[] = [];
+    lines.push(['Generated At', generatedAt].map(csvEscape).join(','));
+    lines.push(['Threshold', `${THRESHOLD_PERCENT}%`].map(csvEscape).join(','));
+    lines.push(['Plan Window', `${PLAN_DAYS} days (from today)`].map(csvEscape).join(','));
+    lines.push(['Overall Attendance', `${summary.overallPercentage.toFixed(1)}% (${summary.totalAttended}/${summary.totalClasses})`].map(csvEscape).join(','));
+    lines.push('');
+
+    lines.push(
+      [
+        'Subject Code',
+        'Subject Name',
+        'Attended',
+        'Total',
+        'Current %',
+        `Upcoming Classes (${PLAN_DAYS}d)`,
+        `Need to Attend in Next ${PLAN_DAYS}d to Reach ${THRESHOLD_PERCENT}%`,
+        `Can Miss in Next ${PLAN_DAYS}d and Still Stay >= ${THRESHOLD_PERCENT}%`,
+        `Classes to Attend to Reach ${THRESHOLD_PERCENT}% (overall)`,
+        `Classes Can Miss Before Below ${THRESHOLD_PERCENT}% (overall)`,
+      ].map(csvEscape).join(',')
+    );
+
+    reportSubjects.forEach((s) => {
+      lines.push(
+        [
+          s.subjectCode,
+          s.subjectName,
+          s.attendedClasses,
+          s.totalClasses,
+          s.currentPercentage.toFixed(1),
+          s.upcomingClasses14,
+          s.minAttendNext14ToReach75,
+          s.maxMissNext14AndStay75,
+          s.classesToAttendToReach75,
+          s.classesCanMissBeforeBelow75,
+        ].map(csvEscape).join(',')
+      );
+    });
+
+    downloadTextFile(`attendance-report-${filenameDate}.csv`, lines.join('\n'), 'text/csv;charset=utf-8');
+  };
+
+  const handleQuickBump = (subjectCode: string, deltaAttended: number, deltaTotal: number) => {
+    bumpCurrentAttendance(subjectCode, { attended: deltaAttended, total: deltaTotal });
+    setAttendanceBump((x) => x + 1);
+  };
+
+  const QuickBumpButton = (
+    props: {
+      subjectCodes: string[];
+      deltaAttended: number;
+      deltaTotal: number;
+      className: string;
+      label: string;
+    }
+  ) => {
+    if (props.subjectCodes.length <= 1) {
+      const code = props.subjectCodes[0];
+      return (
+        <button
+          onClick={() => handleQuickBump(code, props.deltaAttended, props.deltaTotal)}
+          className={props.className}
+        >
+          {props.label}
+        </button>
+      );
+    }
+
+    return (
+      <div className="flex flex-col gap-2 items-center">
+        {props.subjectCodes.map((code) => (
+          <button
+            key={code}
+            onClick={() => handleQuickBump(code, props.deltaAttended, props.deltaTotal)}
+            className={props.className}
+            title={code}
+          >
+            {code} {props.label}
+          </button>
+        ))}
+      </div>
+    );
   };
 
   return (
@@ -248,6 +459,97 @@ export const SummaryPage: React.FC = () => {
         {/* Chart */}
         <div className="mb-8">
           <AttendanceChart subjects={summary.subjects} />
+        </div>
+
+        {/* Quick Daily Update */}
+        <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl rounded-3xl shadow-2xl dark:shadow-gray-900/50 p-8 mb-8 border border-gray-200 dark:border-gray-700">
+          <div className="flex items-center gap-3 mb-2">
+            <div className="w-12 h-12 bg-gradient-to-br from-emerald-500 to-teal-500 rounded-xl flex items-center justify-center shadow-lg">
+              <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+            </div>
+            <div>
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Quick Daily Update</h2>
+              <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                Add today’s class in one click (no need to go back to the planner).
+              </p>
+            </div>
+          </div>
+
+          {!calendar ? (
+            <div className="mt-4 p-4 rounded-2xl border border-amber-300 bg-amber-50 text-amber-900 dark:bg-amber-900/20 dark:text-amber-200 dark:border-amber-700">
+              Calendar not loaded — quick update still works, but the 14‑day plan metrics in the export may be incomplete.
+            </div>
+          ) : null}
+
+          <div className="mt-6 overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+              <thead className="bg-gray-50 dark:bg-gray-900/40">
+                <tr>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Subject</th>
+                  <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Now</th>
+                  <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">+ Present</th>
+                  <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">+ Absent</th>
+                  <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Undo</th>
+                  <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Next 14d</th>
+                </tr>
+              </thead>
+              <tbody className="bg-white dark:bg-gray-800/20 divide-y divide-gray-200 dark:divide-gray-700">
+                {reportSubjects.map((s) => (
+                  <tr key={s.subjectCode}>
+                    <td className="px-4 py-3">
+                      <div className="text-sm font-semibold text-gray-900 dark:text-white">{s.subjectCode}</div>
+                      <div className="text-xs text-gray-500 dark:text-gray-400">{s.subjectName}</div>
+                    </td>
+                    <td className="px-4 py-3 text-center text-sm text-gray-900 dark:text-gray-100">
+                      {s.attendedClasses}/{s.totalClasses} ({s.currentPercentage.toFixed(1)}%)
+                    </td>
+                    <td className="px-4 py-3 text-center">
+                      <QuickBumpButton
+                        subjectCodes={s.relatedSubjectCodes}
+                        deltaAttended={1}
+                        deltaTotal={1}
+                        label="+1"
+                        className="px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-sm font-semibold hover:bg-emerald-700 transition"
+                      />
+                    </td>
+                    <td className="px-4 py-3 text-center">
+                      <QuickBumpButton
+                        subjectCodes={s.relatedSubjectCodes}
+                        deltaAttended={0}
+                        deltaTotal={1}
+                        label="+1"
+                        className="px-3 py-1.5 rounded-lg bg-amber-600 text-white text-sm font-semibold hover:bg-amber-700 transition"
+                      />
+                    </td>
+                    <td className="px-4 py-3 text-center">
+                      <QuickBumpButton
+                        subjectCodes={s.relatedSubjectCodes}
+                        deltaAttended={-1}
+                        deltaTotal={-1}
+                        label="-1"
+                        className="px-3 py-1.5 rounded-lg bg-gray-700 text-white text-sm font-semibold hover:bg-gray-800 transition"
+                      />
+                    </td>
+                    <td className="px-4 py-3 text-center text-sm text-gray-700 dark:text-gray-300">
+                      {s.upcomingClasses14 === 0 ? (
+                        <span className="text-xs text-gray-500 dark:text-gray-400">No classes detected</span>
+                      ) : s.currentPercentage < THRESHOLD_PERCENT ? (
+                        <span>
+                          Attend <span className="font-bold">{s.minAttendNext14ToReach75}</span> / {s.upcomingClasses14} to reach {THRESHOLD_PERCENT}%
+                        </span>
+                      ) : (
+                        <span>
+                          Can miss <span className="font-bold">{s.maxMissNext14AndStay75}</span> / {s.upcomingClasses14} and stay ≥ {THRESHOLD_PERCENT}%
+                        </span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
 
         {/* Subject Cards */}
