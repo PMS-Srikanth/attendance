@@ -22,8 +22,6 @@ import {
   sanitizeCurrentAttendance,
   sanitizeCurrentAttendanceBaseline,
 } from '@/utils/currentAttendance';
-import { getDailyLog, removeDailyLog, upsertDailyLog } from '@/utils/dailyAttendance';
-import type { DailyAttendanceLog } from '@/utils/dailyAttendance';
 import type { CalendarData } from '@/types/calendar';
 import type { TimetableData } from '@/types/timetable';
 
@@ -133,7 +131,6 @@ export const SummaryPage: React.FC = () => {
   const { calendar } = useCalendarStore();
   const [summary, setSummary] = useState<AttendanceSummary | null>(null);
   const [attendanceBump, setAttendanceBump] = useState(0);
-  const [todayMessage, setTodayMessage] = useState<string | null>(null);
 
   const baselineMap = useMemo(() => {
     const map = new Map<string, { attended: number; total: number }>();
@@ -379,105 +376,6 @@ export const SummaryPage: React.FC = () => {
     setAttendanceBump((x) => x + 1);
   };
 
-  const handleMarkToday = (mode: 'present' | 'absent') => {
-    if (!timetable || !calendar) return;
-
-    const today = startOfDay(new Date());
-    const dateIso = format(today, 'yyyy-MM-dd');
-
-    // Make sure baseline exists before we start adding deltas
-    ensureCurrentAttendanceBaseline();
-
-    const existingLog = getDailyLog(dateIso);
-    if (existingLog) {
-      setTodayMessage('Today is already marked. Use the corrections section below (or undo) instead of marking twice.');
-      return;
-    }
-
-    const academicDay = resolveAcademicDay(dateIso, calendar);
-    if (!academicDay) {
-      setTodayMessage('No working classes detected for today (holiday/Sunday/no override).');
-      return;
-    }
-
-    const todaysEntries = timetable.entries.filter((e) => e.day === academicDay);
-    if (todaysEntries.length === 0) {
-      setTodayMessage('No timetable entries found for today.');
-      return;
-    }
-
-    // Count occurrences per subjectCode (some subjects may appear multiple periods)
-    const counts = new Map<string, number>();
-    todaysEntries.forEach((e) => {
-      counts.set(e.subjectCode, (counts.get(e.subjectCode) ?? 0) + 1);
-    });
-
-    counts.forEach((count, subjectCode) => {
-      if (mode === 'present') {
-        bumpCurrentAttendance(subjectCode, { attended: count, total: count });
-      } else {
-        bumpCurrentAttendance(subjectCode, { attended: 0, total: count });
-      }
-    });
-
-    const nowIso = new Date().toISOString();
-    const log: DailyAttendanceLog = {
-      dateIso,
-      createdAtIso: nowIso,
-      updatedAtIso: nowIso,
-      subjects: Array.from(counts.entries()).map(([subjectCode, count]) => ({
-        subjectCode,
-        totalDelta: count,
-        attendedDelta: mode === 'present' ? count : 0,
-      })),
-    };
-    upsertDailyLog(log);
-    setTodayMessage(null);
-
-    setAttendanceBump((x) => x + 1);
-  };
-
-  const getTodayIso = () => format(startOfDay(new Date()), 'yyyy-MM-dd');
-
-  const handleUndoToday = () => {
-    const dateIso = getTodayIso();
-    const log = getDailyLog(dateIso);
-    if (!log) return;
-
-    log.subjects.forEach((s) => {
-      adjustCurrentAttendanceWithBaseline(s.subjectCode, { attended: -s.attendedDelta, total: -s.totalDelta });
-    });
-    removeDailyLog(dateIso);
-    setAttendanceBump((x) => x + 1);
-  };
-
-  const handleToggleOneClass = (subjectCode: string, direction: 'toAbsent' | 'toPresent') => {
-    const dateIso = getTodayIso();
-    const log = getDailyLog(dateIso);
-    if (!log) return;
-
-    const idx = log.subjects.findIndex((s) => s.subjectCode === subjectCode);
-    if (idx < 0) return;
-
-    const entry = log.subjects[idx];
-    if (direction === 'toAbsent') {
-      // Reduce attended by 1 (total stays same)
-      if (entry.attendedDelta <= 0) return;
-      adjustCurrentAttendanceWithBaseline(subjectCode, { attended: -1, total: 0 });
-      entry.attendedDelta -= 1;
-    } else {
-      // Increase attended by 1, up to totalDelta
-      if (entry.attendedDelta >= entry.totalDelta) return;
-      // Keep invariant attended <= total by clamping with baseline-aware adjust
-      adjustCurrentAttendanceWithBaseline(subjectCode, { attended: 1, total: 0 });
-      entry.attendedDelta += 1;
-    }
-
-    log.updatedAtIso = new Date().toISOString();
-    upsertDailyLog(log);
-    setAttendanceBump((x) => x + 1);
-  };
-
   const QuickBumpButton = (
     props: {
       subjectCodes: string[];
@@ -656,7 +554,7 @@ export const SummaryPage: React.FC = () => {
             <div>
               <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Quick Daily Update</h2>
               <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                Add today’s classes in one click (your current attendance only goes up).
+                Update your attendance using quick +1 / -1 buttons (never goes below your baseline).
               </p>
             </div>
           </div>
@@ -666,131 +564,6 @@ export const SummaryPage: React.FC = () => {
               Calendar not loaded — quick update still works, but the 14‑day plan metrics in the export may be incomplete.
             </div>
           ) : null}
-
-          {calendar && timetable ? (() => {
-            const today = startOfDay(new Date());
-            const dateIso = format(today, 'yyyy-MM-dd');
-            const academicDay = resolveAcademicDay(dateIso, calendar);
-            const holiday = isHoliday(dateIso, calendar);
-            const dow = getDayOfWeek(dateIso);
-            const disabled = !academicDay || holiday;
-            const todayLog = getDailyLog(dateIso);
-            const label = holiday
-              ? 'Today is a holiday (no classes)'
-              : dow === 'Sunday'
-              ? 'Sunday (no classes)'
-              : !academicDay
-              ? 'No working schedule for today'
-              : `Today follows: ${academicDay}`;
-
-            return (
-              <div className="mt-4 flex flex-col md:flex-row md:items-center md:justify-between gap-3 p-4 rounded-2xl border border-gray-200 dark:border-gray-700 bg-gray-50/60 dark:bg-gray-900/30">
-                <div>
-                  <div className="text-sm font-semibold text-gray-900 dark:text-white">{dateIso}</div>
-                  <div className="text-xs text-gray-600 dark:text-gray-400">{label}</div>
-                </div>
-                <div className="flex flex-col sm:flex-row gap-3">
-                  <button
-                    onClick={() => handleMarkToday('present')}
-                    disabled={disabled || Boolean(todayLog)}
-                    className={`px-4 py-2 rounded-xl text-sm font-bold text-white transition shadow-lg ${
-                      (disabled || Boolean(todayLog)) ? 'bg-gray-400 cursor-not-allowed' : 'bg-emerald-600 hover:bg-emerald-700'
-                    }`}
-                  >
-                    Mark today as Present
-                  </button>
-                  <button
-                    onClick={() => handleMarkToday('absent')}
-                    disabled={disabled || Boolean(todayLog)}
-                    className={`px-4 py-2 rounded-xl text-sm font-bold text-white transition shadow-lg ${
-                      (disabled || Boolean(todayLog)) ? 'bg-gray-400 cursor-not-allowed' : 'bg-amber-600 hover:bg-amber-700'
-                    }`}
-                  >
-                    Mark today as Absent
-                  </button>
-
-                  <button
-                    onClick={handleUndoToday}
-                    disabled={!todayLog}
-                    className={`px-4 py-2 rounded-xl text-sm font-bold text-white transition shadow-lg ${
-                      !todayLog ? 'bg-gray-400 cursor-not-allowed' : 'bg-rose-600 hover:bg-rose-700'
-                    }`}
-                  >
-                    Undo today
-                  </button>
-                </div>
-              </div>
-            );
-          })() : null}
-
-          {todayMessage && (
-            <div className="mt-4 p-4 rounded-2xl border border-amber-300 bg-amber-50 text-amber-900 dark:bg-amber-900/20 dark:text-amber-200 dark:border-amber-700">
-              {todayMessage}
-            </div>
-          )}
-
-          {(() => {
-            const dateIso = getTodayIso();
-            const log = getDailyLog(dateIso);
-            if (!log) return null;
-
-            return (
-              <div className="mt-4 p-4 rounded-2xl border border-gray-200 dark:border-gray-700 bg-white/60 dark:bg-gray-900/20">
-                <div className="flex items-center justify-between gap-3 mb-3">
-                  <div>
-                    <div className="text-sm font-semibold text-gray-900 dark:text-white">Today corrections</div>
-                    <div className="text-xs text-gray-600 dark:text-gray-400">
-                      If you marked today as present but missed one class, tap “-1 present” for that subject.
-                    </div>
-                  </div>
-                </div>
-
-                <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                    <thead className="bg-gray-50 dark:bg-gray-900/40">
-                      <tr>
-                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Subject</th>
-                        <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Today (present/total)</th>
-                        <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Fix</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                      {log.subjects.map((s) => (
-                        <tr key={s.subjectCode}>
-                          <td className="px-4 py-2 text-sm font-semibold text-gray-900 dark:text-white">{s.subjectCode}</td>
-                          <td className="px-4 py-2 text-center text-sm text-gray-700 dark:text-gray-200">
-                            {s.attendedDelta}/{s.totalDelta}
-                          </td>
-                          <td className="px-4 py-2">
-                            <div className="flex flex-col sm:flex-row items-center justify-center gap-2">
-                              <button
-                                onClick={() => handleToggleOneClass(s.subjectCode, 'toAbsent')}
-                                disabled={s.attendedDelta <= 0}
-                                className={`px-3 py-1.5 rounded-lg text-sm font-semibold text-white ${
-                                  s.attendedDelta <= 0 ? 'bg-gray-400 cursor-not-allowed' : 'bg-rose-600 hover:bg-rose-700'
-                                }`}
-                              >
-                                -1 present
-                              </button>
-                              <button
-                                onClick={() => handleToggleOneClass(s.subjectCode, 'toPresent')}
-                                disabled={s.attendedDelta >= s.totalDelta}
-                                className={`px-3 py-1.5 rounded-lg text-sm font-semibold text-white ${
-                                  s.attendedDelta >= s.totalDelta ? 'bg-gray-400 cursor-not-allowed' : 'bg-emerald-600 hover:bg-emerald-700'
-                                }`}
-                              >
-                                +1 present
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            );
-          })()}
 
           <div className="mt-6 overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
