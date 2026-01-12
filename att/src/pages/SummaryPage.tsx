@@ -444,7 +444,7 @@ export const SummaryPage: React.FC = () => {
               className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-emerald-500 to-teal-500 text-white rounded-xl hover:from-emerald-600 hover:to-teal-600 transition-all shadow-lg hover:shadow-xl font-medium"
             >
               <Download size={20} />
-              Export Report
+              View Report
             </button>
           </div>
         </div>

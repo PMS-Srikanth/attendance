@@ -83,7 +83,7 @@ export const ReportPage: React.FC = () => {
 
         {!model ? (
           <div className="mt-4 rounded-2xl border border-white/10 bg-white/5 p-6 text-sm text-slate-200">
-            If this page stays blank, go back and click “Export Report” again. If your browser blocks popups, allow popups for this site.
+            If this page stays blank, go back and click “View Report” again. If your browser blocks popups, allow popups for this site.
           </div>
         ) : (
           <>
