@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/common/Button';
 import { Subject } from '@/types/timetable';
-import { getCurrentAttendance, setCurrentAttendance } from '@/utils/currentAttendance';
+import { ensureCurrentAttendanceBaseline, getCurrentAttendance, setCurrentAttendance } from '@/utils/currentAttendance';
 
 interface ManualAttendanceFormProps {
   subjects: Subject[];
@@ -118,6 +118,7 @@ export const ManualAttendanceForm: React.FC<ManualAttendanceFormProps> = ({ subj
       });
       
       setCurrentAttendance(mergedAttendance);
+      ensureCurrentAttendanceBaseline(mergedAttendance);
 
       if (decreased.length > 0) {
         setMessage({
