@@ -11,7 +11,7 @@ import { useTimetableStore } from '@/store/useTimetableStore';
 import { useCalendarStore } from '@/store/useCalendarStore';
 import { AttendanceSummary, SubjectAttendance } from '@/types/attendance';
 import { calculatePercentage } from '@/utils/statusUtils';
-import { addDays, startOfDay } from 'date-fns';
+import { addDays, format, startOfDay } from 'date-fns';
 import { getDayOfWeek } from '@/utils/dateUtils';
 import { bumpCurrentAttendance, getCurrentAttendance } from '@/utils/currentAttendance';
 import type { CalendarData } from '@/types/calendar';
@@ -85,7 +85,7 @@ function countUpcomingClasses(
 
   let count = 0;
   for (let d = today; d <= end; d = addDays(d, 1)) {
-    const dateIso = d.toISOString().split('T')[0];
+    const dateIso = format(d, 'yyyy-MM-dd');
     const academicDay = resolveAcademicDay(dateIso, calendar);
     if (!academicDay) continue;
 
@@ -346,7 +346,7 @@ export const SummaryPage: React.FC = () => {
     if (!timetable || !calendar) return;
 
     const today = startOfDay(new Date());
-    const dateIso = today.toISOString().split('T')[0];
+    const dateIso = format(today, 'yyyy-MM-dd');
     const academicDay = resolveAcademicDay(dateIso, calendar);
     if (!academicDay) return;
 
@@ -517,7 +517,7 @@ export const SummaryPage: React.FC = () => {
 
           {calendar && timetable ? (() => {
             const today = startOfDay(new Date());
-            const dateIso = today.toISOString().split('T')[0];
+            const dateIso = format(today, 'yyyy-MM-dd');
             const academicDay = resolveAcademicDay(dateIso, calendar);
             const holiday = isHoliday(dateIso, calendar);
             const dow = getDayOfWeek(dateIso);
