@@ -3,13 +3,11 @@ import { useNavigate } from 'react-router-dom';
 import { Upload } from 'lucide-react';
 import { Button } from '@/components/common/Button';
 import { timetableService } from '@/services/timetableService';
-import { calendarService } from '@/services/calendarService';
 import { attendanceService } from '@/services/attendanceService';
 import { useTimetableStore } from '@/store/useTimetableStore';
 import { useCalendarStore } from '@/store/useCalendarStore';
 import { parseAttendanceFile } from '@/utils/attendanceParser';
 import { userLocalStorage } from '@/utils/userStorage';
-import { normalizeCalendarInput, toBackendCalendarPayload } from '@/utils/calendarNormalize';
 
 export const UploadPage: React.FC = () => {
   const navigate = useNavigate();
@@ -17,7 +15,6 @@ export const UploadPage: React.FC = () => {
   const { setCalendar } = useCalendarStore();
   const isDev = import.meta.env.DEV;
   const [timetableFile, setTimetableFile] = useState<File | null>(null);
-  const [calendarFile, setCalendarFile] = useState<File | null>(null);
   const [attendanceFile, setAttendanceFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string>('');
@@ -43,12 +40,6 @@ export const UploadPage: React.FC = () => {
   const handleTimetableChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       setTimetableFile(e.target.files[0]);
-    }
-  };
-
-  const handleCalendarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      setCalendarFile(e.target.files[0]);
     }
   };
 
@@ -102,37 +93,14 @@ export const UploadPage: React.FC = () => {
         console.log('=== Cache cleared, starting fresh upload ===');
       }
       
-      // Step 1: Parse and upload calendar
-      let calendarData: any;
-      
-      if (calendarFile) {
-        const calendarText = await calendarFile.text();
-        calendarData = JSON.parse(calendarText);
-      } else {
-        // Default calendar if not provided
-        calendarData = {
-          semester_start: '2026-01-01',
-          semester_end: '2026-05-31',
-          holidays: [],
-          working_saturdays: [],
-        };
-      }
-
-      // Normalize and store calendar locally for UI (holidays + Saturday overrides display)
-      const normalizedCalendar = normalizeCalendarInput(calendarData);
-      setCalendar(normalizedCalendar);
-
-      if (isDev) {
-        console.log('Uploading calendar:', calendarData);
-      }
-      const calendarResponse = await calendarService.uploadCalendar(toBackendCalendarPayload(normalizedCalendar) as any);
-      if (isDev) {
-        console.log('Calendar response:', calendarResponse);
-      }
-      
-      if (!calendarResponse.success) {
-        throw new Error(calendarResponse.error || 'Failed to upload calendar');
-      }
+      // Step notice: Academic calendar upload is intentionally disabled for now.
+      // Keep an empty calendar so users can add holidays and Saturday overrides manually in Planner.
+      setCalendar({
+        semesterStartDate: '2026-01-01',
+        semesterEndDate: '2026-05-31',
+        holidays: [],
+        saturdayOverrides: [],
+      });
 
       // Step 2: Parse the timetable data
       if (isDev) {
@@ -744,67 +712,6 @@ export const UploadPage: React.FC = () => {
                   )}
                 </div>
               )}
-            </div>
-
-            {/* Calendar Upload */}
-            <div className="group">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-500 to-blue-500 flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
-                    <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                  </div>
-                  <div>
-                    <label className="block text-lg font-bold text-gray-900 dark:text-white">
-                      Academic Calendar
-                    </label>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">Holidays & semester dates (Optional)</p>
-                  </div>
-                </div>
-                <a 
-                  href="/calendar_template.json" 
-                  download="calendar_template.json"
-                  className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-xl hover:from-purple-600 hover:to-pink-600 transition-all shadow-lg hover:shadow-xl text-sm font-medium"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                  </svg>
-                  Download Template
-                </a>
-              </div>
-              <div className="relative mt-4 flex justify-center px-6 pt-8 pb-8 border-3 border-dashed border-purple-300 dark:border-purple-700 rounded-2xl bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 hover:border-purple-500 dark:hover:border-purple-500 transition-all duration-300 group-hover:shadow-2xl">
-                <div className="space-y-3 text-center">
-                  <div className="mx-auto w-16 h-16 rounded-full bg-white dark:bg-gray-800 flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
-                    <Upload className="w-8 h-8 text-purple-500" />
-                  </div>
-                  <div>
-                    <label className="relative cursor-pointer">
-                      <span className="text-lg font-semibold text-purple-600 dark:text-purple-400 hover:text-purple-700 dark:hover:text-purple-300">
-                        Click to upload
-                      </span>
-                      <input
-                        type="file"
-                        className="sr-only"
-                        accept=".json"
-                        onChange={handleCalendarChange}
-                      />
-                    </label>
-                    <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">or add holidays later</p>
-                  </div>
-                  <p className="text-xs text-gray-500 dark:text-gray-500">Optional - Can skip and add in Review page</p>
-                  {calendarFile && (
-                    <div className="mt-3 p-3 bg-white dark:bg-gray-800 rounded-xl shadow-md">
-                      <p className="text-sm font-medium text-purple-600 dark:text-purple-400 flex items-center justify-center gap-2">
-                        <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                        </svg>
-                        {calendarFile.name}
-                      </p>
-                    </div>
-                  )}
-                </div>
-              </div>
             </div>
 
             {/* Current Attendance Upload (Optional) */}
