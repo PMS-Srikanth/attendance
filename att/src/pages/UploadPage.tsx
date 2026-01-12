@@ -9,6 +9,7 @@ import { useTimetableStore } from '@/store/useTimetableStore';
 import { useCalendarStore } from '@/store/useCalendarStore';
 import { parseAttendanceFile } from '@/utils/attendanceParser';
 import { userLocalStorage } from '@/utils/userStorage';
+import { normalizeCalendarInput, toBackendCalendarPayload } from '@/utils/calendarNormalize';
 
 export const UploadPage: React.FC = () => {
   const navigate = useNavigate();
@@ -102,7 +103,7 @@ export const UploadPage: React.FC = () => {
       }
       
       // Step 1: Parse and upload calendar
-      let calendarData;
+      let calendarData: any;
       
       if (calendarFile) {
         const calendarText = await calendarFile.text();
@@ -117,10 +118,14 @@ export const UploadPage: React.FC = () => {
         };
       }
 
+      // Normalize and store calendar locally for UI (holidays + Saturday overrides display)
+      const normalizedCalendar = normalizeCalendarInput(calendarData);
+      setCalendar(normalizedCalendar);
+
       if (isDev) {
         console.log('Uploading calendar:', calendarData);
       }
-      const calendarResponse = await calendarService.uploadCalendar(calendarData);
+      const calendarResponse = await calendarService.uploadCalendar(toBackendCalendarPayload(normalizedCalendar) as any);
       if (isDev) {
         console.log('Calendar response:', calendarResponse);
       }
@@ -278,31 +283,8 @@ export const UploadPage: React.FC = () => {
         throw new Error(`Timetable upload failed: ${err.response?.data?.detail || err.message}`);
       }
 
-      // Step 3: Fetch and store the data locally
-      const calendarFetch = await calendarService.getCalendar();
+      // Step 3: Fetch and store the timetable data locally
       const timetableFetch = await timetableService.getTimetable();
-
-      if (calendarFetch.success && calendarFetch.data) {
-        // Transform backend calendar to frontend format
-        const backendCalendar = calendarFetch.data;
-        const transformedCalendar = {
-          semesterStartDate: backendCalendar.semester_start || '2026-01-01',
-          semesterEndDate: backendCalendar.semester_end || '2026-05-31',
-          holidays: Array.isArray(backendCalendar.holidays) ? backendCalendar.holidays.map((h: any) => ({
-            date: h.date,
-            name: h.name,
-            type: h.type || 'college'
-          })) : [],
-          saturdayOverrides: Array.isArray(backendCalendar.saturday_overrides) ? backendCalendar.saturday_overrides.map((s: any) => ({
-            date: s.date,
-            followsDay: s.follows_day || s.followsDay || 'Monday'
-          })) : [],
-        };
-        if (isDev) {
-          console.log('Transformed calendar:', transformedCalendar);
-        }
-        setCalendar(transformedCalendar);
-      }
 
       if (timetableFetch.success && timetableFetch.data) {
         // Check if we have original time slots from JSON input
