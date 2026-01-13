@@ -117,6 +117,35 @@ export const SummaryPage: React.FC = () => {
   const { calendar } = useCalendarStore();
   const [summary, setSummary] = useState<AttendanceSummary | null>(null);
   const [attendanceBump, setAttendanceBump] = useState(0);
+  const [pendingAdjustments, setPendingAdjustments] = useState<Record<string, { attended: number; total: number }>>({});
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saved'>('idle');
+
+  const hasPending = useMemo(() => {
+    return Object.values(pendingAdjustments).some((x) => (x.attended ?? 0) !== 0 || (x.total ?? 0) !== 0);
+  }, [pendingAdjustments]);
+
+  const getPendingForCode = (subjectCode: string): { attended: number; total: number } => {
+    return pendingAdjustments[subjectCode] ?? { attended: 0, total: 0 };
+  };
+
+  const sumPendingForCodes = (codes: string[]) => {
+    return codes.reduce(
+      (acc, code) => {
+        const p = getPendingForCode(code);
+        return {
+          attended: acc.attended + (p.attended ?? 0),
+          total: acc.total + (p.total ?? 0),
+        };
+      },
+      { attended: 0, total: 0 }
+    );
+  };
+
+  useEffect(() => {
+    if (saveStatus !== 'saved') return;
+    const t = window.setTimeout(() => setSaveStatus('idle'), 1500);
+    return () => window.clearTimeout(t);
+  }, [saveStatus]);
 
   const baselineMap = useMemo(() => {
     const map = new Map<string, { attended: number; total: number }>();
@@ -329,14 +358,52 @@ export const SummaryPage: React.FC = () => {
   };
 
   const handleQuickBump = (subjectCode: string, deltaAttended: number, deltaTotal: number) => {
-    bumpCurrentAttendance(subjectCode, { attended: deltaAttended, total: deltaTotal });
-    setAttendanceBump((x) => x + 1);
+    setPendingAdjustments((prev) => {
+      const cur = prev[subjectCode] ?? { attended: 0, total: 0 };
+      return {
+        ...prev,
+        [subjectCode]: {
+          attended: (cur.attended ?? 0) + deltaAttended,
+          total: (cur.total ?? 0) + deltaTotal,
+        },
+      };
+    });
   };
 
   const handleQuickAdjustDown = (subjectCode: string, deltaAttended: number, deltaTotal: number) => {
+    setPendingAdjustments((prev) => {
+      const cur = prev[subjectCode] ?? { attended: 0, total: 0 };
+      return {
+        ...prev,
+        [subjectCode]: {
+          attended: (cur.attended ?? 0) + deltaAttended,
+          total: (cur.total ?? 0) + deltaTotal,
+        },
+      };
+    });
+  };
+
+  const handleSavePending = () => {
+    if (!hasPending) return;
+
     ensureCurrentAttendanceBaseline();
-    adjustCurrentAttendanceWithBaseline(subjectCode, { attended: deltaAttended, total: deltaTotal });
+
+    Object.entries(pendingAdjustments).forEach(([code, delta]) => {
+      const deltaAttended = Math.trunc(delta.attended ?? 0);
+      const deltaTotal = Math.trunc(delta.total ?? 0);
+      if (deltaAttended === 0 && deltaTotal === 0) return;
+
+      // Baseline-safe apply (also enforces total >= attended)
+      adjustCurrentAttendanceWithBaseline(code, { attended: deltaAttended, total: deltaTotal });
+    });
+
+    setPendingAdjustments({});
     setAttendanceBump((x) => x + 1);
+    setSaveStatus('saved');
+  };
+
+  const handleClearPending = () => {
+    setPendingAdjustments({});
   };
 
   const QuickBumpButton = (
@@ -517,8 +584,47 @@ export const SummaryPage: React.FC = () => {
             <div>
               <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Quick Daily Update</h2>
               <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                Update your attendance using quick +1 / -1 buttons (never goes below your baseline).
+                Tap buttons to queue changes, then save once (reduces repeated localStorage writes).
               </p>
+            </div>
+          </div>
+
+          <div className="mt-4 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+            <div className="text-sm text-gray-700 dark:text-gray-300">
+              {hasPending ? (
+                <span>
+                  Pending changes: <span className="font-semibold">{Object.values(pendingAdjustments).filter((x) => (x.attended ?? 0) !== 0 || (x.total ?? 0) !== 0).length}</span>
+                </span>
+              ) : (
+                <span>No pending changes</span>
+              )}
+              {saveStatus === 'saved' ? (
+                <span className="ml-3 text-emerald-700 dark:text-emerald-300 font-semibold">Saved</span>
+              ) : null}
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleClearPending}
+                disabled={!hasPending}
+                className={`px-4 py-2 rounded-xl text-sm font-semibold border transition ${
+                  hasPending
+                    ? 'border-gray-300 dark:border-gray-600 text-gray-800 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700/50'
+                    : 'border-gray-200 dark:border-gray-700 text-gray-400 cursor-not-allowed'
+                }`}
+              >
+                Clear
+              </button>
+              <button
+                onClick={handleSavePending}
+                disabled={!hasPending}
+                className={`px-5 py-2 rounded-xl text-sm font-semibold text-white transition shadow ${
+                  hasPending
+                    ? 'bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600'
+                    : 'bg-gray-400 cursor-not-allowed'
+                }`}
+              >
+                Save
+              </button>
             </div>
           </div>
 
@@ -549,7 +655,23 @@ export const SummaryPage: React.FC = () => {
                       <div className="text-xs text-gray-500 dark:text-gray-400">{s.subjectName}</div>
                     </td>
                     <td className="px-4 py-3 text-center text-sm text-gray-900 dark:text-gray-100">
-                      {s.attendedClasses}/{s.totalClasses} ({s.currentPercentage.toFixed(1)}%)
+                      {(() => {
+                        const pending = sumPendingForCodes(s.relatedSubjectCodes);
+                        let nextAtt = (s.attendedClasses ?? 0) + pending.attended;
+                        let nextTot = (s.totalClasses ?? 0) + pending.total;
+                        if (nextTot < nextAtt) nextTot = nextAtt;
+                        const pct = nextTot > 0 ? (nextAtt / nextTot) * 100 : 0;
+                        return (
+                          <>
+                            {nextAtt}/{nextTot} ({pct.toFixed(1)}%)
+                            {pending.attended !== 0 || pending.total !== 0 ? (
+                              <div className="text-[11px] text-emerald-700 dark:text-emerald-300 mt-0.5">
+                                pending {pending.attended >= 0 ? '+' : ''}{pending.attended}/{pending.total >= 0 ? '+' : ''}{pending.total}
+                              </div>
+                            ) : null}
+                          </>
+                        );
+                      })()}
                     </td>
                     <td className="px-4 py-3 text-center">
                       <QuickDownButton
@@ -561,7 +683,10 @@ export const SummaryPage: React.FC = () => {
                         disabledFor={(code) => {
                           const base = baselineMap.get(code) ?? { attended: 0, total: 0 };
                           const cur = currentMap.get(code) ?? { attended: 0, total: 0 };
-                          return cur.attended <= base.attended || cur.total <= base.total;
+                          const p = getPendingForCode(code);
+                          const effAtt = (cur.attended ?? 0) + (p.attended ?? 0);
+                          const effTot = (cur.total ?? 0) + (p.total ?? 0);
+                          return effAtt <= base.attended || effTot <= base.total;
                         }}
                       />
                     </td>
@@ -584,8 +709,11 @@ export const SummaryPage: React.FC = () => {
                         disabledFor={(code) => {
                           const base = baselineMap.get(code) ?? { attended: 0, total: 0 };
                           const cur = currentMap.get(code) ?? { attended: 0, total: 0 };
+                          const p = getPendingForCode(code);
+                          const effAtt = (cur.attended ?? 0) + (p.attended ?? 0);
+                          const effTot = (cur.total ?? 0) + (p.total ?? 0);
                           // Can't go below baseline total; also can't reduce total below attended (would be no-op)
-                          return cur.total <= base.total || cur.total <= cur.attended;
+                          return effTot <= base.total || effTot <= effAtt;
                         }}
                       />
                     </td>
