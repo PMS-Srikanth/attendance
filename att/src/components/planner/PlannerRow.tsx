@@ -5,6 +5,7 @@ import { TimetableEntry } from '@/types/timetable';
 import { StatusSelect } from './StatusSelect';
 import { getDayOfWeek, isDateInPast } from '@/utils/dateUtils';
 import { useCalendarStore } from '@/store/useCalendarStore';
+import { usePlannerStore } from '@/store/usePlannerStore';
 
 interface PlannerRowProps {
   date: string;
@@ -22,6 +23,7 @@ export const PlannerRow: React.FC<PlannerRowProps> = ({
   onStatusChange,
 }) => {
   const { calendar } = useCalendarStore();
+  const bulkUpdatePlannedRecords = usePlannerStore((s) => s.bulkUpdatePlannedRecords);
   const dayOfWeek = getDayOfWeek(date) as 'Monday' | 'Tuesday' | 'Wednesday' | 'Thursday' | 'Friday' | 'Saturday';
   const isPast = isDateInPast(date);
   
@@ -77,6 +79,35 @@ export const PlannerRow: React.FC<PlannerRowProps> = ({
     return planned?.status;
   };
 
+  const getPlannedStatus = (subjectCode: string, slotNumber: number) => {
+    return plannedRecords.find(
+      (r) => r.date === date && r.subjectCode === subjectCode && r.slotNumber === slotNumber
+    )?.status;
+  };
+
+  const plannedPresentCount = dayEntries.filter(
+    (e) => getPlannedStatus(e.subjectCode, e.slotNumber) === 'planned-present'
+  ).length;
+  const plannedAbsentCount = dayEntries.filter(
+    (e) => getPlannedStatus(e.subjectCode, e.slotNumber) === 'planned-absent'
+  ).length;
+
+  const toggleBulk = (target: 'planned-present' | 'planned-absent') => {
+    if (isPast) return;
+
+    const allAlready = dayEntries.every((e) => getPlannedStatus(e.subjectCode, e.slotNumber) === target);
+    const nextStatus = allAlready ? undefined : target;
+
+    bulkUpdatePlannedRecords(
+      dayEntries.map((e) => ({
+        date,
+        subjectCode: e.subjectCode,
+        slotNumber: e.slotNumber,
+        status: nextStatus,
+      }))
+    );
+  };
+
   return (
     <div className={`border rounded-lg p-4 ${isPast ? 'bg-gray-50 dark:bg-gray-800/50' : 'bg-white dark:bg-gray-800'} ${saturdayOverride ? 'border-2 border-green-400 dark:border-green-600' : ''}`}>
       <div className="flex items-center justify-between mb-3">
@@ -90,7 +121,32 @@ export const PlannerRow: React.FC<PlannerRowProps> = ({
             </span>
           )}
         </div>
-        {isPast && <span className="text-xs text-gray-500">Past</span>}
+        <div className="flex items-center gap-3">
+          {!isPast && (
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => toggleBulk('planned-present')}
+                className="px-3 py-1.5 rounded-lg text-xs font-semibold border-2 transition-all bg-white dark:bg-gray-800 text-emerald-600 dark:text-emerald-400 border-emerald-500 dark:border-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20"
+                title="Mark all classes for this day as planned present (click again to clear)"
+              >
+                All Present
+              </button>
+              <button
+                type="button"
+                onClick={() => toggleBulk('planned-absent')}
+                className="px-3 py-1.5 rounded-lg text-xs font-semibold border-2 transition-all bg-white dark:bg-gray-800 text-rose-600 dark:text-rose-400 border-rose-500 dark:border-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/20"
+                title="Mark all classes for this day as planned absent (click again to clear)"
+              >
+                All Absent
+              </button>
+              <span className="text-[11px] text-gray-500 dark:text-gray-400">
+                Selected: {plannedPresentCount + plannedAbsentCount}/{dayEntries.length}
+              </span>
+            </div>
+          )}
+          {isPast && <span className="text-xs text-gray-500">Past</span>}
+        </div>
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
         {dayEntries.map((entry) => {

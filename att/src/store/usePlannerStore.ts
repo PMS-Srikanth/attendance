@@ -13,6 +13,14 @@ interface PlannerStore {
   setPlannedRecords: (records: AttendanceRecord[]) => void;
   addPlannedRecord: (record: AttendanceRecord) => void;
   updatePlannedRecord: (date: string, subjectCode: string, slotNumber: number, status?: 'planned-present' | 'planned-absent') => void;
+  bulkUpdatePlannedRecords: (
+    updates: Array<{
+      date: string;
+      subjectCode: string;
+      slotNumber: number;
+      status?: 'planned-present' | 'planned-absent';
+    }>
+  ) => void;
   removePlannedRecord: (date: string, subjectCode: string, slotNumber: number) => void;
   clearPlannedRecords: () => void;
   
@@ -79,6 +87,51 @@ export const usePlannerStore = create<PlannerStore>()(
           ],
         };
       }
+    }),
+
+  bulkUpdatePlannedRecords: (updates) =>
+    set((state) => {
+      if (!updates.length) return state;
+
+      const keyOf = (u: { date: string; subjectCode: string; slotNumber: number }) =>
+        `${u.date}__${u.subjectCode}__${u.slotNumber}`;
+
+      const next = [...state.plannedRecords];
+      const indexByKey = new Map<string, number>();
+      for (let i = 0; i < next.length; i++) {
+        indexByKey.set(keyOf(next[i]), i);
+      }
+
+      for (const update of updates) {
+        const key = keyOf(update);
+        const existingIndex = indexByKey.get(key);
+
+        if (!update.status) {
+          if (existingIndex !== undefined) {
+            next.splice(existingIndex, 1);
+            indexByKey.clear();
+            for (let i = 0; i < next.length; i++) {
+              indexByKey.set(keyOf(next[i]), i);
+            }
+          }
+          continue;
+        }
+
+        if (existingIndex !== undefined) {
+          next[existingIndex] = { ...next[existingIndex], status: update.status };
+        } else {
+          next.push({
+            date: update.date,
+            subjectCode: update.subjectCode,
+            slotNumber: update.slotNumber,
+            status: update.status,
+            isPast: false,
+          });
+          indexByKey.set(key, next.length - 1);
+        }
+      }
+
+      return { plannedRecords: next };
     }),
 
   removePlannedRecord: (date, subjectCode, slotNumber) =>
