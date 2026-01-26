@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/common/Button';
 import { Subject } from '@/types/timetable';
-import { ensureCurrentAttendanceBaseline, getCurrentAttendance, setCurrentAttendance } from '@/utils/currentAttendance';
+import { getCurrentAttendance, setCurrentAttendance, setCurrentAttendanceBaseline } from '@/utils/currentAttendance';
 
 interface ManualAttendanceFormProps {
   subjects: Subject[];
@@ -118,7 +118,9 @@ export const ManualAttendanceForm: React.FC<ManualAttendanceFormProps> = ({ subj
       });
       
       setCurrentAttendance(mergedAttendance);
-      ensureCurrentAttendanceBaseline(mergedAttendance);
+      // Treat the user-edited current attendance as the new baseline for Quick Daily Update.
+      // This prevents initial “-1” actions from being enabled just because an older baseline existed.
+      setCurrentAttendanceBaseline(mergedAttendance);
 
       if (decreased.length > 0) {
         setMessage({

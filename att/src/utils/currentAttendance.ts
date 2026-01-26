@@ -88,6 +88,23 @@ export function getCurrentAttendanceBaseline(): CurrentAttendanceItem[] {
   return mergeByMax(parseItems(userRaw), parseItems(legacyRaw));
 }
 
+export function setCurrentAttendanceBaseline(items: CurrentAttendanceItem[]): void {
+  const normalized = items.map((x) => {
+    const attended = Math.max(0, Math.floor(x.attended));
+    const total = Math.max(attended, Math.max(0, Math.floor(x.total)));
+    return {
+      subjectCode: normalizeSubjectCode(x.subjectCode),
+      attended,
+      total,
+      percentage: x.percentage,
+    };
+  });
+
+  const raw = JSON.stringify(normalized);
+  localStorage.setItem(BASELINE_KEY, raw);
+  userLocalStorage.setItem(BASELINE_KEY, raw);
+}
+
 export function ensureCurrentAttendanceBaseline(initialItems?: CurrentAttendanceItem[]): void {
   const existing = getCurrentAttendanceBaseline();
   if (existing.length > 0) return;
