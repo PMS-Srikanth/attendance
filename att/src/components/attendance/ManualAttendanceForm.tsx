@@ -92,20 +92,15 @@ export const ManualAttendanceForm: React.FC<ManualAttendanceFormProps> = ({ subj
           percentage: calculatePercentage(data.attended, data.total)
         }));
       
-      // Merge with existing - NEVER decrease existing values
+      // Merge with existing.
+      // Manual current attendance is the source of truth, so allow decreases/overwrites.
       const mergedAttendance = [...existingAttendance];
-      const decreased: string[] = [];
       newEntries.forEach((newEntry) => {
         const existingIndex = mergedAttendance.findIndex((e) => e.subjectCode === newEntry.subjectCode);
         if (existingIndex >= 0) {
           const prev = mergedAttendance[existingIndex];
-          const nextAttended = Math.max(prev.attended ?? 0, newEntry.attended ?? 0);
-          const nextTotal = Math.max(prev.total ?? 0, newEntry.total ?? 0);
-
-          if ((newEntry.attended ?? 0) < (prev.attended ?? 0) || (newEntry.total ?? 0) < (prev.total ?? 0)) {
-            decreased.push(newEntry.subjectCode);
-          }
-
+          const nextAttended = Math.max(0, Math.floor(newEntry.attended ?? 0));
+          const nextTotal = Math.max(nextAttended, Math.max(0, Math.floor(newEntry.total ?? 0)));
           mergedAttendance[existingIndex] = {
             ...prev,
             attended: nextAttended,
@@ -113,7 +108,14 @@ export const ManualAttendanceForm: React.FC<ManualAttendanceFormProps> = ({ subj
             percentage: calculatePercentage(String(nextAttended), String(nextTotal)),
           };
         } else {
-          mergedAttendance.push(newEntry);
+          const nextAttended = Math.max(0, Math.floor(newEntry.attended ?? 0));
+          const nextTotal = Math.max(nextAttended, Math.max(0, Math.floor(newEntry.total ?? 0)));
+          mergedAttendance.push({
+            ...newEntry,
+            attended: nextAttended,
+            total: nextTotal,
+            percentage: calculatePercentage(String(nextAttended), String(nextTotal)),
+          });
         }
       });
       
@@ -122,17 +124,10 @@ export const ManualAttendanceForm: React.FC<ManualAttendanceFormProps> = ({ subj
       // This prevents initial “-1” actions from being enabled just because an older baseline existed.
       setCurrentAttendanceBaseline(mergedAttendance);
 
-      if (decreased.length > 0) {
-        setMessage({
-          type: 'warning',
-          text: `Saved. Note: we ignored decreases for ${decreased.join(', ')} (current attendance only goes up).`,
-        });
-      } else {
-        setMessage({
-          type: 'success',
-          text: `Successfully saved attendance for ${newEntries.length} subjects! Total: ${mergedAttendance.length}`
-        });
-      }
+      setMessage({
+        type: 'success',
+        text: `Successfully saved attendance for ${newEntries.length} subjects! Total: ${mergedAttendance.length}`
+      });
       
       setTimeout(() => {
         onSave();
