@@ -16,7 +16,6 @@ import { getDayOfWeek } from '@/utils/dateUtils';
 import { openAttendanceReportInNewTab } from '@/utils/reportWindow';
 import {
   adjustCurrentAttendanceWithBaseline,
-  bumpCurrentAttendance,
   ensureCurrentAttendanceBaseline,
   getCurrentAttendance,
   getCurrentAttendanceBaseline,
@@ -120,6 +119,18 @@ export const SummaryPage: React.FC = () => {
   const [pendingAdjustments, setPendingAdjustments] = useState<Record<string, { attended: number; total: number }>>({});
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saved'>('idle');
 
+  // Refresh immediately when current attendance is saved/changed elsewhere (e.g. Review page modal)
+  useEffect(() => {
+    const onChanged = () => {
+      setPendingAdjustments({});
+      setSaveStatus('idle');
+      setAttendanceBump((x) => x + 1);
+    };
+
+    window.addEventListener('currentAttendance:changed', onChanged as EventListener);
+    return () => window.removeEventListener('currentAttendance:changed', onChanged as EventListener);
+  }, []);
+
   const hasPending = useMemo(() => {
     return Object.values(pendingAdjustments).some((x) => (x.attended ?? 0) !== 0 || (x.total ?? 0) !== 0);
   }, [pendingAdjustments]);
@@ -182,64 +193,24 @@ export const SummaryPage: React.FC = () => {
       .filter(subject => {
         const codeLower = subject.subjectCode.toLowerCase();
         const nameLower = subject.subjectName.toLowerCase();
-        return !codeLower.includes('library') && 
+        // Only exclude Library + Class Advisor. Keep Free Elective and everything else.
+        return !codeLower.includes('library') &&
                !codeLower.includes('advisor') &&
-               !codeLower.includes('sports') &&
                codeLower !== 'ca' &&
                !nameLower.includes('library') &&
-               !nameLower.includes('class advisor') &&
-               !nameLower.includes('sports');
+               !nameLower.includes('class advisor');
       })
       .reduce((acc, subject) => {
-        // Skip lab subjects - they will be merged with their theory counterparts
-        if (subject.subjectName.toLowerCase().includes('lab') || /\(lab\s*\d*\)/i.test(subject.subjectName)) {
-          // Check if there's a theory subject for this lab in the original list
-          const theoryName = subject.subjectName.replace(/\s*\(lab\s*\d*\)/gi, '').replace(/\s*lab\s*/gi, '').trim().toLowerCase();
-          const hasTheory = timetable.subjects.some(s => {
-            const sCodeLower = s.subjectCode.toLowerCase();
-            const sNameLower = s.subjectName.toLowerCase();
-            return !sCodeLower.includes('library') &&
-                   !sCodeLower.includes('advisor') &&
-                   !sCodeLower.includes('sports') &&
-                   sCodeLower !== 'ca' &&
-                   !sNameLower.includes('library') &&
-                   !sNameLower.includes('class advisor') &&
-                   !sNameLower.includes('sports') &&
-                   !sNameLower.includes('lab') &&
-                   sNameLower.includes(theoryName);
-          });
-          if (hasTheory) return acc; // Skip this lab, it will be merged with theory
-        }
-
         const subjectRecords = records.filter((r) => r.subjectCode === subject.subjectCode);
         const subjectPlanned = plannedRecords.filter((r) => r.subjectCode === subject.subjectCode);
 
         // Use saved attendance data if available, otherwise use records
         const savedData = attendanceMap.get(subject.subjectCode);
         
-        // If this is a theory subject with a lab, combine the attendance
         let totalClasses = savedData ? savedData.total : subjectRecords.length;
         let attendedClasses = savedData ? savedData.attended : subjectRecords.filter(
           (r) => r.status === 'present' || r.status === 'planned-present'
         ).length;
-        
-        // Check for corresponding lab subject
-        const labSubject = timetable.subjects.find(s => {
-          const baseName = s.subjectName.replace(/\s*\(lab\s*\d*\)/gi, '').replace(/\s*lab\s*/gi, '').trim().toLowerCase();
-          const thisBaseName = subject.subjectName.toLowerCase();
-          return (s.subjectName.toLowerCase().includes('lab') || /\(lab\s*\d*\)/i.test(s.subjectName)) &&
-                 thisBaseName.includes(baseName) &&
-                 s.subjectCode !== subject.subjectCode;
-        });
-        
-        if (labSubject) {
-          // Add lab attendance to theory
-          const labSavedData = attendanceMap.get(labSubject.subjectCode);
-          if (labSavedData) {
-            totalClasses += labSavedData.total;
-            attendedClasses += labSavedData.attended;
-          }
-        }
 
         const plannedPresentClasses = subjectPlanned.filter(
           (r) => r.status === 'planned-present'
@@ -253,11 +224,9 @@ export const SummaryPage: React.FC = () => {
         const projectedTotal = totalClasses + plannedPresentClasses + plannedAbsentClasses;
         const projectedPercentage = calculatePercentage(projectedAttended, projectedTotal);
 
-        // Display with "(includes Lab)" if it has a lab component
-        const displayName = labSubject ? `${subject.subjectName} (includes Lab)` : subject.subjectName;
+        const displayName = subject.subjectName;
 
         const relatedSubjectCodes = [subject.subjectCode];
-        if (labSubject) relatedSubjectCodes.push(labSubject.subjectCode);
 
         const upcomingClasses14 = timetable && calendar
           ? countUpcomingClasses(timetable, calendar, relatedSubjectCodes, PLAN_DAYS)

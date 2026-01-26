@@ -132,11 +132,9 @@ export const PlannerPage: React.FC = () => {
               const nameLower = entry.subjectName.toLowerCase();
               return !codeLower.includes('library') &&
                      !codeLower.includes('advisor') &&
-                     !codeLower.includes('sports') &&
                      codeLower !== 'ca' &&
                      !nameLower.includes('library') &&
-                     !nameLower.includes('class advisor') &&
-                     !nameLower.includes('sports');
+                     !nameLower.includes('class advisor');
             })}
             records={records}
             plannedRecords={plannedRecords}

@@ -156,31 +156,6 @@ export const ManualAttendanceForm: React.FC<ManualAttendanceFormProps> = ({ subj
     );
   }
 
-  // Identify lab subjects dynamically
-  const labSubjects = subjects.filter(subject => 
-    subject.subjectName.toLowerCase().includes('lab') ||
-    /\(lab\s*\d*\)/i.test(subject.subjectName)
-  );
-
-  // Create a map of lab codes to their theory subject codes
-  const labToTheoryMap = new Map<string, string>();
-  labSubjects.forEach(lab => {
-    // Find theory subject with similar name (without "Lab" part)
-    const labBaseName = lab.subjectName
-      .replace(/\s*\(lab\s*\d*\)/gi, '')
-      .replace(/\s*lab\s*/gi, '')
-      .trim()
-      .toLowerCase();
-    
-    const theorySubject = subjects.find(s => 
-      !s.subjectName.toLowerCase().includes('lab') &&
-      s.subjectName.toLowerCase().includes(labBaseName)
-    );
-    
-    if (theorySubject) {
-      labToTheoryMap.set(lab.subjectCode, theorySubject.subjectCode);
-    }
-  });
 
   // Filter and prepare subjects for display
   const displaySubjects = subjects.filter(subject => {
@@ -195,11 +170,6 @@ export const ManualAttendanceForm: React.FC<ManualAttendanceFormProps> = ({ subj
     return true;
   });
 
-  // Check if a subject has an associated lab
-  const hasLab = (subjectCode: string) => {
-    return Array.from(labToTheoryMap.values()).includes(subjectCode);
-  };
-
   return (
     <div className="space-y-6">
       <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg p-4">
@@ -212,11 +182,7 @@ export const ManualAttendanceForm: React.FC<ManualAttendanceFormProps> = ({ subj
         {displaySubjects.map((subject) => {
           const data = attendanceData[subject.subjectCode] || { attended: '', total: '' };
           const percentage = calculatePercentage(data.attended, data.total);
-          
-          // Add note if subject has lab component
-          const displayName = hasLab(subject.subjectCode)
-            ? `${subject.subjectName} (includes Lab)`
-            : subject.subjectName;
+          const displayName = subject.subjectName;
           
           return (
             <div

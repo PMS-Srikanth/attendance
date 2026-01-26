@@ -10,6 +10,21 @@ export interface CurrentAttendanceItem {
 const STORAGE_KEY = 'currentAttendance';
 const BASELINE_KEY = 'currentAttendanceBaseline';
 
+const ATTENDANCE_CHANGED_EVENT = 'currentAttendance:changed';
+let emitScheduled = false;
+
+function emitAttendanceChanged(): void {
+  // localStorage 'storage' events do NOT fire in the same tab that made the change.
+  // We dispatch our own event so Summary/Quick Update can refresh immediately.
+  if (emitScheduled) return;
+  emitScheduled = true;
+  Promise.resolve().then(() => {
+    emitScheduled = false;
+    if (typeof window === 'undefined') return;
+    window.dispatchEvent(new CustomEvent(ATTENDANCE_CHANGED_EVENT));
+  });
+}
+
 function normalizeSubjectCode(code: unknown): string {
   return String(code ?? '').trim();
 }
@@ -80,6 +95,8 @@ export function setCurrentAttendance(items: CurrentAttendanceItem[]): void {
   const raw = JSON.stringify(normalized);
   localStorage.setItem(STORAGE_KEY, raw);
   userLocalStorage.setItem(STORAGE_KEY, raw);
+
+  emitAttendanceChanged();
 }
 
 export function getCurrentAttendanceBaseline(): CurrentAttendanceItem[] {
@@ -103,6 +120,8 @@ export function setCurrentAttendanceBaseline(items: CurrentAttendanceItem[]): vo
   const raw = JSON.stringify(normalized);
   localStorage.setItem(BASELINE_KEY, raw);
   userLocalStorage.setItem(BASELINE_KEY, raw);
+
+  emitAttendanceChanged();
 }
 
 export function ensureCurrentAttendanceBaseline(initialItems?: CurrentAttendanceItem[]): void {
@@ -125,6 +144,8 @@ export function ensureCurrentAttendanceBaseline(initialItems?: CurrentAttendance
 
   localStorage.setItem(BASELINE_KEY, raw);
   userLocalStorage.setItem(BASELINE_KEY, raw);
+
+  emitAttendanceChanged();
 }
 
 export function bumpCurrentAttendance(
