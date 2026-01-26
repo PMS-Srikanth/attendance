@@ -3,6 +3,7 @@ import { createJSONStorage, persist } from 'zustand/middleware';
 import type { PersistOptions } from 'zustand/middleware';
 import { AttendanceRecord, AttendanceWarning } from '@/types/attendance';
 import { createUserStorage } from '@/utils/userStorage';
+import { format } from 'date-fns';
 
 interface PlannerStore {
   plannedRecords: AttendanceRecord[];
@@ -23,6 +24,7 @@ interface PlannerStore {
   ) => void;
   removePlannedRecord: (date: string, subjectCode: string, slotNumber: number) => void;
   clearPlannedRecords: () => void;
+  prunePastPlannedRecords: (todayIso?: string) => void;
   
   setWarnings: (warnings: AttendanceWarning[]) => void;
   clearWarnings: () => void;
@@ -143,6 +145,18 @@ export const usePlannerStore = create<PlannerStore>()(
 
   clearPlannedRecords: () => set({ plannedRecords: [] }),
 
+  prunePastPlannedRecords: (todayIso) =>
+    set((state) => {
+      const today = todayIso ?? format(new Date(), 'yyyy-MM-dd');
+      const next = state.plannedRecords.filter((r) => {
+        const dateKey = (r.date ?? '').toString().slice(0, 10);
+        return dateKey >= today;
+      });
+
+      if (next.length === state.plannedRecords.length) return state;
+      return { plannedRecords: next };
+    }),
+
   setWarnings: (warnings) => set({ warnings }),
 
   clearWarnings: () => set({ warnings: [] }),
@@ -168,6 +182,9 @@ export const usePlannerStore = create<PlannerStore>()(
         plannedRecords: state.plannedRecords,
         warnings: state.warnings,
       }),
+      onRehydrateStorage: () => (state) => {
+        state?.prunePastPlannedRecords();
+      },
     } satisfies PersistOptions<PlannerStore, Pick<PlannerStore, 'plannedRecords' | 'warnings'>>
   )
 );
