@@ -19,6 +19,7 @@ import {
   ensureCurrentAttendanceBaseline,
   getCurrentAttendance,
   getCurrentAttendanceBaseline,
+  setCurrentAttendanceBaseline,
   sanitizeCurrentAttendance,
   sanitizeCurrentAttendanceBaseline,
 } from '@/utils/currentAttendance';
@@ -123,7 +124,8 @@ export const SummaryPage: React.FC = () => {
   useEffect(() => {
     const onChanged = () => {
       setPendingAdjustments({});
-      setSaveStatus('idle');
+      // Preserve the transient "saved" toast when we change attendance in this tab.
+      setSaveStatus((prev) => (prev === 'saved' ? 'saved' : 'idle'));
       setAttendanceBump((x) => x + 1);
     };
 
@@ -329,26 +331,26 @@ export const SummaryPage: React.FC = () => {
   const handleQuickBump = (subjectCode: string, deltaAttended: number, deltaTotal: number) => {
     setPendingAdjustments((prev) => {
       const cur = prev[subjectCode] ?? { attended: 0, total: 0 };
-      return {
-        ...prev,
-        [subjectCode]: {
-          attended: (cur.attended ?? 0) + deltaAttended,
-          total: (cur.total ?? 0) + deltaTotal,
-        },
-      };
+      let attended = Math.trunc((cur.attended ?? 0) + deltaAttended);
+      let total = Math.trunc((cur.total ?? 0) + deltaTotal);
+      attended = Math.max(0, attended);
+      total = Math.max(0, total);
+      if (total < attended) total = attended;
+
+      return { ...prev, [subjectCode]: { attended, total } };
     });
   };
 
   const handleQuickAdjustDown = (subjectCode: string, deltaAttended: number, deltaTotal: number) => {
     setPendingAdjustments((prev) => {
       const cur = prev[subjectCode] ?? { attended: 0, total: 0 };
-      return {
-        ...prev,
-        [subjectCode]: {
-          attended: (cur.attended ?? 0) + deltaAttended,
-          total: (cur.total ?? 0) + deltaTotal,
-        },
-      };
+      let attended = Math.trunc((cur.attended ?? 0) + deltaAttended);
+      let total = Math.trunc((cur.total ?? 0) + deltaTotal);
+      attended = Math.max(0, attended);
+      total = Math.max(0, total);
+      if (total < attended) total = attended;
+
+      return { ...prev, [subjectCode]: { attended, total } };
     });
   };
 
@@ -365,6 +367,9 @@ export const SummaryPage: React.FC = () => {
       // Baseline-safe apply (also enforces total >= attended)
       adjustCurrentAttendanceWithBaseline(code, { attended: deltaAttended, total: deltaTotal });
     });
+
+    // Lock in the saved values as the new baseline so "-1" cannot be used immediately after saving.
+    setCurrentAttendanceBaseline(getCurrentAttendance());
 
     setPendingAdjustments({});
     setAttendanceBump((x) => x + 1);
@@ -650,12 +655,9 @@ export const SummaryPage: React.FC = () => {
                         label="-1"
                         className="px-3 py-1.5 rounded-lg bg-rose-600 text-white text-sm font-semibold hover:bg-rose-700 transition"
                         disabledFor={(code) => {
-                          const base = baselineMap.get(code) ?? { attended: 0, total: 0 };
-                          const cur = currentMap.get(code) ?? { attended: 0, total: 0 };
                           const p = getPendingForCode(code);
-                          const effAtt = (cur.attended ?? 0) + (p.attended ?? 0);
-                          const effTot = (cur.total ?? 0) + (p.total ?? 0);
-                          return effAtt <= base.attended || effTot <= base.total;
+                          // Only allow undo if a +Present was previously added for this subject.
+                          return (p.attended ?? 0) <= 0;
                         }}
                       />
                     </td>
@@ -676,13 +678,10 @@ export const SummaryPage: React.FC = () => {
                         label="-1"
                         className="px-3 py-1.5 rounded-lg bg-rose-600 text-white text-sm font-semibold hover:bg-rose-700 transition"
                         disabledFor={(code) => {
-                          const base = baselineMap.get(code) ?? { attended: 0, total: 0 };
-                          const cur = currentMap.get(code) ?? { attended: 0, total: 0 };
                           const p = getPendingForCode(code);
-                          const effAtt = (cur.attended ?? 0) + (p.attended ?? 0);
-                          const effTot = (cur.total ?? 0) + (p.total ?? 0);
-                          // Can't go below baseline total; also can't reduce total below attended (would be no-op)
-                          return effTot <= base.total || effTot <= effAtt;
+                          // Only allow undo if a +Absent was previously added for this subject.
+                          // (+Absent adds total without attended, so pending.total > pending.attended)
+                          return (p.total ?? 0) <= (p.attended ?? 0);
                         }}
                       />
                     </td>
