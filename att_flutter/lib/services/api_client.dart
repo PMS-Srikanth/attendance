@@ -1,4 +1,6 @@
+import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:http/http.dart' as http;
 
@@ -55,21 +57,48 @@ class ApiClient {
     }
   }
 
-  Future<dynamic> getJson(String path, {Map<String, String>? headers}) async {
-    final response = await _httpClient.get(
-      _uri(path),
-      headers: {'Accept': 'application/json', ...?headers},
-    );
+  static const _kTimeout = Duration(seconds: 60);
 
-    final decoded = _decodeBody(response.body, response.statusCode);
-    if (response.statusCode < 200 || response.statusCode >= 300) {
+  /// Wraps a Future, converting network / timeout errors
+  /// into [ApiException] so callers always get a typed error.
+  Future<T> _safeCall<T>(Future<T> Function() fn) async {
+    try {
+      return await fn();
+    } on ApiException {
+      rethrow;
+    } on TimeoutException {
       throw ApiException(
-        _extractErrorMessage(decoded),
-        statusCode: response.statusCode,
+        'Request timed out — the server may be waking up. Please try again.',
       );
+    } on SocketException catch (e) {
+      throw ApiException('Network error: ${e.message}');
+    } on http.ClientException catch (e) {
+      throw ApiException('Connection error: ${e.message}');
+    } on HandshakeException catch (e) {
+      throw ApiException('SSL error: ${e.message}');
+    } catch (e) {
+      throw ApiException('Unexpected error: $e');
     }
+  }
 
-    return decoded;
+  Future<dynamic> getJson(String path, {Map<String, String>? headers}) async {
+    return _safeCall(() async {
+      final response = await _httpClient
+          .get(
+            _uri(path),
+            headers: {'Accept': 'application/json', ...?headers},
+          )
+          .timeout(_kTimeout);
+
+      final decoded = _decodeBody(response.body, response.statusCode);
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        throw ApiException(
+          _extractErrorMessage(decoded),
+          statusCode: response.statusCode,
+        );
+      }
+      return decoded;
+    });
   }
 
   Future<dynamic> postJson(
@@ -77,29 +106,65 @@ class ApiClient {
     Map<String, dynamic>? body,
     Map<String, String>? headers,
   }) async {
-    final mergedHeaders = <String, String>{
-      'Accept': 'application/json',
-      ...?headers,
-    };
-    if (body != null) {
-      mergedHeaders['Content-Type'] = 'application/json';
-    }
+    return _safeCall(() async {
+      final mergedHeaders = <String, String>{
+        'Accept': 'application/json',
+        ...?headers,
+      };
+      if (body != null) {
+        mergedHeaders['Content-Type'] = 'application/json';
+      }
 
-    final response = await _httpClient.post(
-      _uri(path),
-      headers: mergedHeaders,
-      body: body == null ? null : jsonEncode(body),
-    );
+      final response = await _httpClient
+          .post(
+            _uri(path),
+            headers: mergedHeaders,
+            body: body == null ? null : jsonEncode(body),
+          )
+          .timeout(_kTimeout);
 
-    final decoded = _decodeBody(response.body, response.statusCode);
-    if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw ApiException(
-        _extractErrorMessage(decoded),
-        statusCode: response.statusCode,
-      );
-    }
+      final decoded = _decodeBody(response.body, response.statusCode);
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        throw ApiException(
+          _extractErrorMessage(decoded),
+          statusCode: response.statusCode,
+        );
+      }
+      return decoded;
+    });
+  }
 
-    return decoded;
+  Future<dynamic> patchJson(
+    String path, {
+    Map<String, dynamic>? body,
+    Map<String, String>? headers,
+  }) async {
+    return _safeCall(() async {
+      final mergedHeaders = <String, String>{
+        'Accept': 'application/json',
+        ...?headers,
+      };
+      if (body != null) {
+        mergedHeaders['Content-Type'] = 'application/json';
+      }
+
+      final response = await _httpClient
+          .patch(
+            _uri(path),
+            headers: mergedHeaders,
+            body: body == null ? null : jsonEncode(body),
+          )
+          .timeout(_kTimeout);
+
+      final decoded = _decodeBody(response.body, response.statusCode);
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        throw ApiException(
+          _extractErrorMessage(decoded),
+          statusCode: response.statusCode,
+        );
+      }
+      return decoded;
+    });
   }
 }
 
@@ -110,6 +175,5 @@ class ApiException implements Exception {
   final int? statusCode;
 
   @override
-  String toString() =>
-      'ApiException(statusCode: $statusCode, message: $message)';
+  String toString() => message;
 }

@@ -190,7 +190,7 @@ class _SetupScreenState extends State<SetupScreen> {
   Future<void> _uploadCalendar() async {
     final body = _decodeJsonMap(_calendarController.text);
     await _run(
-      () => _apiClient.postJson('/calendar', body: body),
+      () => _apiClient.postJson('/calendar/', body: body),
       'Calendar uploaded',
     );
   }
@@ -198,7 +198,7 @@ class _SetupScreenState extends State<SetupScreen> {
   Future<void> _uploadTimetable() async {
     final body = _decodeJsonMap(_timetableController.text);
     await _run(
-      () => _apiClient.postJson('/timetable', body: body),
+      () => _apiClient.postJson('/timetable/', body: body),
       'Timetable uploaded',
     );
   }

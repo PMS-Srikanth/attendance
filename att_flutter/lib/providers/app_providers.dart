@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/app_models.dart';
+import '../services/api_client.dart';
 import '../services/app_service.dart';
 
 // ─── Upload state ─────────────────────────────────────────────────────────
@@ -155,6 +156,13 @@ class AttendanceNotifier extends StateNotifier<AttendanceState> {
     try {
       final data = await _svc.getAttendanceSummary();
       state = AttendanceState(data: data);
+    } on ApiException catch (e) {
+      if (e.statusCode == 404) {
+        // No classes generated yet — show empty state, not error
+        state = const AttendanceState();
+      } else {
+        state = AttendanceState(error: e.message);
+      }
     } catch (e) {
       state = AttendanceState(
         error: e.toString().replaceFirst('ApiException: ', ''),

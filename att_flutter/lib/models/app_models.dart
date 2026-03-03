@@ -69,7 +69,9 @@ class TimetableResponse {
             .map((e) => DaySchedule.fromJson(e as Map<String, dynamic>))
             .toList(),
         totalClassesPerWeek: (j['total_classes_per_week'] as num).toInt(),
-        uniqueSubjects: List<String>.from(j['unique_subjects'] as List),
+        // backend returns 'subjects' (list of codes)
+        uniqueSubjects: List<String>.from(
+            (j['subjects'] ?? j['unique_subjects']) as List),
         classesPerSubject:
             Map<String, int>.from(j['classes_per_subject'] as Map),
       );

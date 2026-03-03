@@ -2,6 +2,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/app_models.dart';
+import '../services/api_client.dart';
 import '../services/app_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common_widgets.dart';
@@ -117,27 +118,46 @@ class PlannerScreen extends ConsumerWidget {
       backgroundColor: scheme.surface,
       body: plannerAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                AlertBanner(
-                  severity: 'critical',
-                  message: e.toString().replaceFirst('ApiException: ', ''),
-                ),
-                const SizedBox(height: 16),
-                AppButton(
-                  label: 'Retry',
-                  icon: Icons.refresh,
-                  onPressed: () => ref.invalidate(_plannerSummaryProvider),
-                ),
-              ],
+        error: (e, _) {
+          final isNoData = (e is ApiException && e.statusCode == 404)
+              || e.toString().contains('No classes found')
+              || e.toString().contains('Generate classes first');
+          if (isNoData) {
+            return const Center(
+              child: EmptyStateCard(
+                icon: Icons.calendar_today_outlined,
+                message:
+                    'No classes yet.\nUpload your timetable on the Upload tab and generate classes first.',
+              ),
+            );
+          }
+          return Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  AlertBanner(
+                    severity: 'critical',
+                    message: e is ApiException
+                        ? e.message
+                        : e.toString().replaceFirst('ApiException: ', ''),
+                  ),
+                  const SizedBox(height: 16),
+                  AppButton(
+                    label: 'Retry',
+                    icon: Icons.refresh,
+                    onPressed: () => ref.invalidate(_plannerSummaryProvider),
+                  ),
+                ],
+              ),
             ),
-          ),
+          );
+        },
+        data: (summary) => RefreshIndicator(
+          onRefresh: () async => ref.invalidate(_plannerSummaryProvider),
+          child: _buildContent(context, ref, summary),
         ),
-        data: (summary) => _buildContent(context, ref, summary),
       ),
     );
   }

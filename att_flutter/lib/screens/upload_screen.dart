@@ -31,7 +31,6 @@ class _UploadScreenState extends ConsumerState<UploadScreen> {
   @override
   void dispose() {
     _timetableJsonCtrl.dispose();
-    _calendarJsonCtrl.dispose();
     super.dispose();
   }
 
@@ -97,12 +96,14 @@ class _UploadScreenState extends ConsumerState<UploadScreen> {
                     placeholder: '{\n  "schedule": [\n    {\n      "day": "Monday",\n'
                         '      "classes": [...]\n    }\n  ]\n}',
                     onChanged: (v) {
-                      try {
-                        _timetableJson =
-                            jsonDecode(v) as Map<String, dynamic>;
-                      } catch (_) {
-                        _timetableJson = null;
-                      }
+                      setState(() {
+                        try {
+                          _timetableJson =
+                              jsonDecode(v) as Map<String, dynamic>;
+                        } catch (_) {
+                          _timetableJson = null;
+                        }
+                      });
                     },
                   ),
                   if (_timetableJsonCtrl.text.trim().isNotEmpty) ...[
@@ -122,72 +123,6 @@ class _UploadScreenState extends ConsumerState<UploadScreen> {
                     '${status.timetableData!.totalClassesPerWeek} classes/week · '
                     '${status.timetableData!.uniqueSubjects.length} subjects',
                   ),
-                ],
-
-                const Divider(height: 32),
-
-                // ─ Calendar section ─
-                _SectionIcon(
-                  icon: Icons.event_note_outlined,
-                  gradient: [const Color(0xFF06B6D4), const Color(0xFF3B82F6)],
-                  title: 'Academic Calendar',
-                  subtitle: 'Semester dates, holidays & Saturdays  •  Optional',
-                  actionLabel: 'Template ↓',
-                  onAction: () => _showTemplate(context, _calendarTemplate),
-                ),
-                const SizedBox(height: 12),
-                _ModeToggle(
-                  selected: _calendarMode,
-                  onChanged: (v) => setState(() => _calendarMode = v),
-                ),
-                const SizedBox(height: 12),
-                if (_calendarMode == 0) ...[
-                  _DropZone(
-                    fileName: _calendarFileName,
-                    isDone: status.calendar == UploadStep.done,
-                    onPick: () => _pickFile(
-                      label: 'calendar',
-                      onParsed: (name, json) {
-                        setState(() {
-                          _calendarFileName = name;
-                          _calendarJson = json;
-                        });
-                      },
-                    ),
-                  ),
-                ] else ...[
-                  _JsonHint(
-                    hint: 'Paste your calendar JSON with semester_start, '
-                        'semester_end and holidays.',
-                  ),
-                  const SizedBox(height: 8),
-                  _JsonTextArea(
-                    controller: _calendarJsonCtrl,
-                    placeholder: '{\n  "semester_start": "2025-06-01",\n'
-                        '  "semester_end": "2025-11-30",\n'
-                        '  "holidays": [...]\n}',
-                    onChanged: (v) {
-                      try {
-                        _calendarJson =
-                            jsonDecode(v) as Map<String, dynamic>;
-                      } catch (_) {
-                        _calendarJson = null;
-                      }
-                    },
-                  ),
-                  if (_calendarJsonCtrl.text.trim().isNotEmpty) ...[
-                    const SizedBox(height: 6),
-                    _JsonValid(valid: _calendarJson != null,
-                        length: _calendarJsonCtrl.text.length),
-                  ],
-                ],
-                if (status.calendarError != null) ...[
-                  const SizedBox(height: 8),
-                  AlertBanner(severity: 'critical', message: status.calendarError!),
-                ],
-                if (status.calendar == UploadStep.done) ...[
-                  const SizedBox(height: 8),
-                  const _SuccessBadge('Calendar loaded'),
                 ],
 
                 const SizedBox(height: 24),
@@ -325,6 +260,169 @@ class _UploadScreenState extends ConsumerState<UploadScreen> {
       _hasTimetable &&
       status.generate != UploadStep.loading;
 
+  /// Convert comprehensive timetable format (weeklySchedule + timeSlots + courses)
+  /// into the backend's expected { "schedule": [...] } format.
+  /// If already in schedule format, return as-is.
+  Map<String, dynamic> _normalizeToSchedule(Map<String, dynamic> json) {
+    // Already in backend format
+    if (json.containsKey('schedule')) return json;
+
+    // ── Comprehensive format: weeklySchedule + timeSlots ──
+    final weeklySchedule = json['weeklySchedule'] as Map<String, dynamic>?;
+    final timeSlots = json['timeSlots'] as Map<String, dynamic>?;
+
+    if (weeklySchedule == null || timeSlots == null) {
+      // Also accept the web-app's { days: { monday: [...] } } shape
+      final days = json['days'] as Map<String, dynamic>?;
+      if (days != null) return _normalizeDaysFormat(days);
+      throw const FormatException(
+        'Unrecognised timetable format. Expected "schedule", '
+        '"weeklySchedule + timeSlots", or "days" key.',
+      );
+    }
+
+    final courses =
+        (json['courses'] as List<dynamic>?)?.cast<Map<String, dynamic>>() ?? [];
+    final classroom = json['classroom']?.toString() ?? '';
+
+    String _capitalize(String s) =>
+        s.isEmpty ? s : '${s[0].toUpperCase()}${s.substring(1).toLowerCase()}';
+
+    /// Parse "08:55 AM - 09:45 AM" → { start_time: "08:55", end_time: "09:45" }
+    Map<String, String> _parseTimeSlot(String raw) {
+      final parts = raw.split(' - ');
+      if (parts.length != 2) throw FormatException('Bad time slot: $raw');
+
+      String to24(String t12) {
+        final chunks = t12.trim().split(' ');
+        if (chunks.length != 2) throw FormatException('Bad time: $t12');
+        final hm = chunks[0].split(':');
+        var h = int.parse(hm[0]);
+        final m = int.parse(hm[1]);
+        final pm = chunks[1].toUpperCase() == 'PM';
+        if (pm && h != 12) h += 12;
+        if (!pm && h == 12) h = 0;
+        return '${h.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')}';
+      }
+
+      return {'start_time': to24(parts[0]), 'end_time': to24(parts[1])};
+    }
+
+    final schedule = <Map<String, dynamic>>[];
+
+    for (final dayEntry in weeklySchedule.entries) {
+      final dayName = _capitalize(dayEntry.key); // monday → Monday
+      final daySlots = dayEntry.value as Map<String, dynamic>;
+      final classes = <Map<String, dynamic>>[];
+
+      for (final slotEntry in daySlots.entries) {
+        final slotKey = slotEntry.key; // slot1, slot2, …
+        final classInfo = slotEntry.value?.toString() ?? '';
+        if (classInfo.isEmpty) continue;
+        final timeRaw = timeSlots[slotKey]?.toString();
+        if (timeRaw == null) continue;
+
+        // Parse "CODE - Name" pattern
+        final dashIdx = classInfo.indexOf(' - ');
+        final subjectCode =
+            dashIdx > 0 ? classInfo.substring(0, dashIdx).trim() : classInfo;
+        final subjectName =
+            dashIdx > 0 ? classInfo.substring(dashIdx + 3).trim() : classInfo;
+
+        // Detect non-academic slots
+        final lower = classInfo.toLowerCase();
+        final isNonAcademic = lower.contains('library') ||
+            lower.contains('sports') ||
+            lower.contains('class advisor') ||
+            lower == 'ca' ||
+            lower.contains('free elective');
+
+        // Look up faculty from courses list
+        final courseMatch = courses.cast<Map<String, dynamic>>().where((c) {
+          final code = c['code']?.toString() ?? '';
+          return subjectCode.contains(code) || code.contains(subjectCode);
+        }).toList();
+        final instructor =
+            courseMatch.isNotEmpty ? (courseMatch.first['faculty'] ?? '') : '';
+
+        final ts = _parseTimeSlot(timeRaw);
+
+        classes.add({
+          'subject_code': isNonAcademic ? classInfo : subjectCode,
+          'subject_name': isNonAcademic ? classInfo : subjectName,
+          'time_slot': ts,
+          'room': classroom,
+          'instructor': instructor.toString(),
+          'is_non_academic': isNonAcademic,
+        });
+      }
+
+      if (classes.isNotEmpty) {
+        schedule.add({'day': dayName, 'classes': classes});
+      }
+    }
+
+    return {'schedule': schedule};
+  }
+
+  /// Handle the { days: { monday: [ {time_slot, subject_code, …} ] } } shape
+  /// used by the web app's alternate old format.
+  Map<String, dynamic> _normalizeDaysFormat(Map<String, dynamic> days) {
+    String _capitalize(String s) =>
+        s.isEmpty ? s : '${s[0].toUpperCase()}${s.substring(1).toLowerCase()}';
+
+    String _to24(String t12) {
+      final chunks = t12.trim().split(' ');
+      if (chunks.length == 2) {
+        final hm = chunks[0].split(':');
+        var h = int.parse(hm[0]);
+        final m = int.parse(hm[1]);
+        final pm = chunks[1].toUpperCase() == 'PM';
+        if (pm && h != 12) h += 12;
+        if (!pm && h == 12) h = 0;
+        return '${h.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')}';
+      }
+      return t12.trim(); // already 24 h or "HH:MM-HH:MM"
+    }
+
+    final schedule = <Map<String, dynamic>>[];
+    for (final entry in days.entries) {
+      final dayName = _capitalize(entry.key);
+      final raw = entry.value;
+      if (raw is! List) continue;
+      final classes = <Map<String, dynamic>>[];
+      for (final c in raw) {
+        if (c is! Map) continue;
+        final m = Map<String, dynamic>.from(c);
+        // Normalise time_slot from "HH:MM AM/PM - HH:MM AM/PM" or "HH:MM-HH:MM"
+        final ts = m['time_slot'];
+        if (ts is String && !ts.contains('{')) {
+          final parts = ts.split(' - ');
+          if (parts.length == 2) {
+            m['time_slot'] = {
+              'start_time': _to24(parts[0]),
+              'end_time': _to24(parts[1]),
+            };
+          } else {
+            // "HH:MM-HH:MM"
+            final p2 = ts.split('-');
+            if (p2.length == 2) {
+              m['time_slot'] = {
+                'start_time': p2[0].trim(),
+                'end_time': p2[1].trim(),
+              };
+            }
+          }
+        }
+        classes.add(m);
+      }
+      if (classes.isNotEmpty) {
+        schedule.add({'day': dayName, 'classes': classes});
+      }
+    }
+    return {'schedule': schedule};
+  }
+
   Future<void> _submit(UploadNotifier notifier, UploadStatus status) async {
     // parse text fields if needed
     if (_timetableMode == 1 && _timetableJson == null) {
@@ -337,18 +435,16 @@ class _UploadScreenState extends ConsumerState<UploadScreen> {
         return;
       }
     }
-    // parse calendar text only if user actually typed something
-    if (_calendarMode == 1 &&
-        _calendarJson == null &&
-        _calendarJsonCtrl.text.trim().isNotEmpty) {
-      try {
-        _calendarJson = jsonDecode(_calendarJsonCtrl.text) as Map<String, dynamic>;
-      } catch (_) {
+    // ── Normalise timetable into backend schedule format ──
+    try {
+      _timetableJson = _normalizeToSchedule(_timetableJson!);
+    } on FormatException catch (e) {
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Invalid calendar JSON')),
+          SnackBar(content: Text(e.message)),
         );
-        return;
       }
+      return;
     }
 
     // upload timetable if not already done
@@ -359,15 +455,40 @@ class _UploadScreenState extends ConsumerState<UploadScreen> {
     final s2 = ref.read(uploadProvider);
     if (s2.timetable == UploadStep.error) return;
 
-    // upload calendar only if data was provided (it's optional)
-    if (_calendarJson != null && s2.calendar != UploadStep.done) {
-      await notifier.uploadCalendar(_calendarJson!);
+    // upload calendar — always auto-generate
+    if (s2.calendar != UploadStep.done) {
+      final calJson = _defaultCalendar();
+      await notifier.uploadCalendar(calJson);
       if (!mounted) return;
       final s3 = ref.read(uploadProvider);
       if (s3.calendar == UploadStep.error) return;
     }
 
     await notifier.generateClasses();
+
+    // Auto-switch to Review tab when generate succeeds
+    if (!mounted) return;
+    final s4 = ref.read(uploadProvider);
+    if (s4.generateDone) {
+      // Small delay so user sees the success banner briefly
+      await Future.delayed(const Duration(milliseconds: 800));
+      if (mounted) AppShell.switchTab.value = 1; // Review tab
+    }
+  }
+
+  /// Auto-generate a default calendar when the user skips that section.
+  /// Uses today → today + 5 months as semester range with no holidays.
+  Map<String, dynamic> _defaultCalendar() {
+    final now = DateTime.now();
+    final end = DateTime(now.year, now.month + 5, now.day);
+    String fmt(DateTime d) =>
+        '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+    return {
+      'semester_start': fmt(now),
+      'semester_end': fmt(end),
+      'holidays': <dynamic>[],
+      'working_saturdays': <dynamic>[],
+    };
   }
 
   Future<void> _pickFile({
@@ -1159,54 +1280,48 @@ class _HowStep extends StatelessWidget {
 
 const _timetableTemplate = '''
 {
-  "schedule": [
-    {
-      "day": "Monday",
-      "classes": [
-        {
-          "subject_code": "CS401",
-          "subject_name": "Operating Systems",
-          "time_slot": { "start_time": "09:00", "end_time": "10:00" },
-          "room": "301",
-          "instructor": "Dr. Smith"
-        },
-        {
-          "subject_code": "MA201",
-          "subject_name": "Mathematics",
-          "time_slot": { "start_time": "10:00", "end_time": "11:00" },
-          "room": "102"
-        }
-      ]
+  "timeSlots": {
+    "slot1": "08:55 AM - 09:45 AM",
+    "slot2": "09:45 AM - 10:35 AM",
+    "slot3": "10:45 AM - 11:35 AM",
+    "slot4": "11:35 AM - 12:25 PM",
+    "slot5": "01:20 PM - 02:10 PM",
+    "slot6": "02:10 PM - 03:00 PM"
+  },
+  "weeklySchedule": {
+    "monday": {
+      "slot1": "CS401 - Operating Systems",
+      "slot2": "MA201 - Mathematics",
+      "slot3": "CS402 - DBMS",
+      "slot4": "Library/Sports"
     },
-    {
-      "day": "Wednesday",
-      "classes": [
-        {
-          "subject_code": "CS401",
-          "subject_name": "Operating Systems",
-          "time_slot": { "start_time": "09:00", "end_time": "10:00" },
-          "room": "301"
-        }
-      ]
+    "tuesday": {
+      "slot1": "CS402 - DBMS",
+      "slot2": "CS401 - Operating Systems",
+      "slot3": "MA201 - Mathematics",
+      "slot5": "CS401 - OS Lab",
+      "slot6": "CS401 - OS Lab"
     }
-  ]
-}''';
-
-const _calendarTemplate = '''
-{
-  "semester_start": "2025-06-01",
-  "semester_end": "2025-11-30",
-  "holidays": [
+  },
+  "courses": [
     {
-      "date": "2025-08-15",
-      "name": "Independence Day",
-      "type": "holiday"
+      "code": "CS401",
+      "name": "Operating Systems",
+      "credits": 4,
+      "faculty": "Dr. Smith"
     },
     {
-      "date": "2025-10-02",
-      "name": "Gandhi Jayanti",
-      "type": "holiday"
+      "code": "MA201",
+      "name": "Mathematics",
+      "credits": 3,
+      "faculty": "Dr. Brown"
+    },
+    {
+      "code": "CS402",
+      "name": "DBMS",
+      "credits": 4,
+      "faculty": "Prof. Johnson"
     }
   ],
-  "working_days": ["Monday","Tuesday","Wednesday","Thursday","Friday"]
+  "classroom": "A312"
 }''';

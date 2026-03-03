@@ -7,6 +7,7 @@ import '../services/app_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common_widgets.dart';
 import 'app_shell.dart';
+import 'report_screen.dart';
 
 //  Warnings provider 
 
@@ -46,6 +47,12 @@ class _SummaryScreenState extends ConsumerState<SummaryScreen> {
         title: 'Summary',
         actions: [
           IconButton(
+            icon: const Icon(Icons.assessment_outlined),
+            tooltip: 'View Report',
+            onPressed: () =>
+                Navigator.of(context).pushNamed(ReportScreen.route),
+          ),
+          IconButton(
             icon: const Icon(Icons.refresh_rounded),
             onPressed: _refresh,
           ),
@@ -83,7 +90,10 @@ class _SummaryScreenState extends ConsumerState<SummaryScreen> {
             ),
           );
         }
-        return _buildContent(context, state.data!, warnings.valueOrNull ?? []);
+        return RefreshIndicator(
+          onRefresh: () async => _refresh(),
+          child: _buildContent(context, state.data!, warnings.valueOrNull ?? []),
+        );
       }(),
     );
   }

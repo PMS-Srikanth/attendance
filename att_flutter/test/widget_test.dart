@@ -5,13 +5,19 @@
 // gestures. You can also use WidgetTester to find child widgets in the widget
 // tree, read text, and verify that the values of widget properties are correct.
 
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:att_flutter/main.dart';
+import 'package:att_flutter/screens/login_screen.dart';
 
 void main() {
   testWidgets('Shows login screen', (WidgetTester tester) async {
-    await tester.pumpWidget(const AttendEaseApp());
+    await tester.pumpWidget(
+      const ProviderScope(
+        child: AttendEaseApp(initialRoute: LoginScreen.route),
+      ),
+    );
     await tester.pumpAndSettle();
 
     expect(find.text('Login'), findsWidgets);

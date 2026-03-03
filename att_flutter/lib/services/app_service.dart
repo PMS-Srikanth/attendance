@@ -13,13 +13,13 @@ class AppService {
   // ─── Timetable ────────────────────────────────────────────────────────────
 
   Future<TimetableResponse> uploadTimetable(Map<String, dynamic> json) async {
-    final data = await _client.postJson('/timetable', body: json);
+    final data = await _client.postJson('/timetable/', body: json);
     return TimetableResponse.fromJson(data as Map<String, dynamic>);
   }
 
   Future<TimetableResponse?> getTimetable() async {
     try {
-      final data = await _client.getJson('/timetable');
+      final data = await _client.getJson('/timetable/');
       if (data == null) return null;
       return TimetableResponse.fromJson(data as Map<String, dynamic>);
     } on ApiException catch (e) {
@@ -31,13 +31,13 @@ class AppService {
   // ─── Calendar ─────────────────────────────────────────────────────────────
 
   Future<Map<String, dynamic>> uploadCalendar(Map<String, dynamic> json) async {
-    final data = await _client.postJson('/calendar', body: json);
+    final data = await _client.postJson('/calendar/', body: json);
     return data as Map<String, dynamic>;
   }
 
   Future<Map<String, dynamic>?> getCalendar() async {
     try {
-      final data = await _client.getJson('/calendar');
+      final data = await _client.getJson('/calendar/');
       if (data == null) return null;
       return data as Map<String, dynamic>;
     } on ApiException catch (e) {
@@ -67,20 +67,25 @@ class AppService {
   }
 
   Future<List<ClassInstance>> getClasses({String? status, String? date}) async {
-    var path = '/attendance/classes';
-    final params = <String>[];
-    if (status != null) params.add('status=$status');
-    if (date != null) params.add('date=$date');
-    if (params.isNotEmpty) path = '$path?${params.join('&')}';
-    final data = await _client.getJson(path);
-    final list = data as List<dynamic>;
-    return list
-        .map((e) => ClassInstance.fromJson(e as Map<String, dynamic>))
-        .toList();
+    try {
+      var path = '/attendance/classes';
+      final params = <String>[];
+      if (status != null) params.add('status=$status');
+      if (date != null) params.add('date=$date');
+      if (params.isNotEmpty) path = '$path?${params.join('&')}';
+      final data = await _client.getJson(path);
+      final list = data as List<dynamic>;
+      return list
+          .map((e) => ClassInstance.fromJson(e as Map<String, dynamic>))
+          .toList();
+    } on ApiException catch (e) {
+      if (e.statusCode == 404) return [];
+      rethrow;
+    }
   }
 
   Future<ClassInstance> updateClass(String id, String newStatus) async {
-    final data = await _client.postJson(
+    final data = await _client.patchJson(
       '/attendance/classes/$id',
       body: {'status': newStatus},
     );

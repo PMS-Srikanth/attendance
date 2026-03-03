@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../services/auth_service.dart';
 import '../theme/app_theme.dart';
 import '../theme/theme_notifier.dart';
 import 'login_screen.dart';
@@ -14,12 +15,37 @@ class AppShell extends StatefulWidget {
 
   static const route = '/shell';
 
+  /// Call this from any screen to switch the bottom-nav tab.
+  /// 0=Upload, 1=Review, 2=Planner, 3=Summary
+  static final switchTab = ValueNotifier<int>(-1);
+
   @override
   State<AppShell> createState() => _AppShellState();
 }
 
 class _AppShellState extends State<AppShell> {
   int _currentIndex = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    AppShell.switchTab.addListener(_onSwitchTab);
+  }
+
+  @override
+  void dispose() {
+    AppShell.switchTab.removeListener(_onSwitchTab);
+    super.dispose();
+  }
+
+  void _onSwitchTab() {
+    final idx = AppShell.switchTab.value;
+    if (idx >= 0 && idx < _screens.length && mounted) {
+      setState(() => _currentIndex = idx);
+      // Reset so the same value can trigger again later
+      AppShell.switchTab.value = -1;
+    }
+  }
 
   static const _tabs = [
     _TabItem(icon: Icons.upload_file_outlined, activeIcon: Icons.upload_file, label: 'Upload'),
@@ -99,10 +125,15 @@ class ShellAppBar extends StatelessWidget implements PreferredSizeWidget {
         IconButton(
           tooltip: 'Logout',
           icon: const Icon(Icons.logout_outlined),
-          onPressed: () => Navigator.of(context).pushNamedAndRemoveUntil(
-            LoginScreen.route,
-            (_) => false,
-          ),
+          onPressed: () async {
+            await AuthService.clearToken();
+            if (context.mounted) {
+              Navigator.of(context).pushNamedAndRemoveUntil(
+                LoginScreen.route,
+                (_) => false,
+              );
+            }
+          },
         ),
       ],
     );
@@ -172,10 +203,15 @@ class GradientAppBar extends StatelessWidget implements PreferredSizeWidget {
               ),
               IconButton(
                 icon: const Icon(Icons.logout_outlined, color: Colors.white),
-                onPressed: () => Navigator.of(context).pushNamedAndRemoveUntil(
-                  LoginScreen.route,
-                  (_) => false,
-                ),
+                onPressed: () async {
+                  await AuthService.clearToken();
+                  if (context.mounted) {
+                    Navigator.of(context).pushNamedAndRemoveUntil(
+                      LoginScreen.route,
+                      (_) => false,
+                    );
+                  }
+                },
               ),
             ],
           ),
