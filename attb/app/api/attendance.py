@@ -5,8 +5,8 @@ from app.models.class_instance import ClassInstance, ClassInstanceUpdate, ClassG
 from app.models.attendance import OverallAttendance, AttendanceWarning
 from app.services.class_generator import ClassGenerator
 from app.services.attendance_service import AttendanceService
-from app.api.calendar import _calendar_storage
-from app.api.timetable import _timetable_storage
+import app.api.calendar as calendar_mod
+import app.api.timetable as timetable_mod
 from app.core.logging import get_logger
 
 router = APIRouter()
@@ -32,13 +32,13 @@ async def generate_classes():
     
     Creates individual class instances that can be tracked for attendance.
     """
-    if _calendar_storage is None:
+    if calendar_mod._calendar_storage is None:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Calendar not found. Please upload calendar first."
         )
     
-    if _timetable_storage is None:
+    if timetable_mod._timetable_storage is None:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Timetable not found. Please upload timetable first."
@@ -46,7 +46,7 @@ async def generate_classes():
     
     try:
         generator = ClassGenerator()
-        response = generator.generate_classes(_calendar_storage, _timetable_storage)
+        response = generator.generate_classes(calendar_mod._calendar_storage, timetable_mod._timetable_storage)
         
         # Store classes
         global _classes_storage
