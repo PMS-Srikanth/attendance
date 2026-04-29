@@ -15,6 +15,9 @@ dist/
 build/
 *.egg-info/
 
+# Local-only / not pushed
+att_flutter/
+
 # IDE
 .vscode/
 .idea/
