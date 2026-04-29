@@ -1,50 +1,37 @@
 # AttendEase (Attendance Planner)
 
-AttendEase is an attendance planning tool with a **React + TypeScript** frontend and a **FastAPI** backend.
+AttendEase helps you **stay ≥ 75% attendance** by letting you upload your timetable + (optional) current attendance, then plan upcoming classes and see subject-wise warnings and a printable report.
 
-- Frontend: timetable upload, calendar/holidays, attendance planning, summary dashboard
-- Backend: parsing/processing, attendance calculation (75% threshold), API endpoints
-- Auth: Firebase Google OAuth (frontend)
+- Frontend: React + TypeScript + Vite + Tailwind
+- Backend: FastAPI (Python) with `/api/*` endpoints
+- Auth: Firebase Google Sign-In
 
-> Note: The `att_flutter/` directory exists locally but is **ignored by git** and will not be pushed.
+> Note: `att_flutter/` is intentionally **not part of this repo** (ignored + untracked).
 
-## Repository structure
+## What you can do in the app
 
-- `att/` — Frontend (Vite + React + Tailwind)
-- `attb/` — Backend (Python + FastAPI)
-- `DEPLOYMENT_GUIDE.md` — Deploy (Vercel + Render)
-- `FIREBASE_SETUP.md` — Firebase / Google OAuth setup
-- `QUICK_START.md` — Quick local run steps
+- Upload a **Timetable JSON** (required)
+- (Optional) Upload **Attendance CSV** to preload current attendance
+- Review/edit timetable mappings
+- Plan upcoming classes as **Planned Present / Planned Absent**
+- See subject-wise summaries + warnings when you’re near/below 75%
+- Generate a **printable report** (PDF via browser print)
 
-## Prerequisites
+## Quick start (Windows / PowerShell)
 
-- Node.js 18+ (recommended)
-- Python 3.10+ (see `attb/runtime.txt` if present)
-
-## Run locally
-
-### 1) Backend
-
-PowerShell:
+### 1) Backend (FastAPI)
 
 ```powershell
 cd attb
 python run.ps1
 ```
 
-Or directly:
+Backend runs at `http://localhost:8000`.
+Swagger docs: `http://localhost:8000/docs`
 
-```powershell
-cd attb
-pip install -r requirements.txt
-python -m uvicorn app.main:app --reload
-```
+### 2) Frontend (Vite)
 
-API docs: http://localhost:8000/docs
-
-### 2) Frontend
-
-In a new terminal:
+Open a new terminal:
 
 ```powershell
 cd att
@@ -52,27 +39,73 @@ npm install
 npm run dev
 ```
 
-Open: http://localhost:5173
+Frontend runs at `http://localhost:5173`.
 
-## Firebase (Google Login)
+## Configuration
 
-Firebase config is read from env vars.
+### Frontend env vars (Firebase + API)
 
-- Follow `FIREBASE_SETUP.md`
-- Create `att/.env` locally (do not commit secrets)
+Create `att/.env` (local only) with:
+
+```bash
+VITE_API_BASE_URL=http://localhost:8000/api
+
+VITE_FIREBASE_API_KEY=...
+VITE_FIREBASE_AUTH_DOMAIN=...
+VITE_FIREBASE_PROJECT_ID=...
+VITE_FIREBASE_STORAGE_BUCKET=...
+VITE_FIREBASE_MESSAGING_SENDER_ID=...
+VITE_FIREBASE_APP_ID=...
+```
+
+Firebase setup steps are documented in `FIREBASE_SETUP.md`.
+
+### Backend env vars (optional)
+
+The backend supports environment configuration. You can copy:
+
+```powershell
+cd attb
+Copy-Item .env.example .env
+```
+
+Common settings:
+
+- `ALLOWED_ORIGINS` (comma-separated) for CORS
+- `MINIMUM_ATTENDANCE_THRESHOLD` (defaults to 75)
+
+## How to use (end-user flow)
+
+1. Open the site and **Sign in with Google**.
+2. Go to **Upload**.
+3. Upload your **Timetable JSON** (or paste JSON).
+4. (Optional) Upload **Attendance CSV**.
+5. Go to **Review** to confirm/edit.
+6. Go to **Planner** and mark upcoming classes planned present/absent.
+7. Go to **Summary** → **View Report** to print/save PDF.
+
+For a shareable, step-by-step explanation you can send to classmates, see `USER_FLOW.md`.
+
+## Templates
+
+Starter templates live under `att/public/`:
+
+- `attendance_template.csv`
+- `calendar_template.json`
+- `timetable_template.json`
 
 ## Deployment
 
-- Frontend: Vercel
-- Backend: Render
+- Frontend: Vercel (project lives in `att/`)
+- Backend: Render (project lives in `attb/`)
 
-See `DEPLOYMENT_GUIDE.md`.
+See `DEPLOYMENT_GUIDE.md` for the full deploy walkthrough.
 
-## Troubleshooting
+## Repo structure
 
-- If login fails, re-check Firebase OAuth settings and `att/.env` values.
-- If the backend won’t start, confirm your Python version and installed dependencies.
-
-## License
-
-Add a license if/when you’re ready.
+- `att/` — frontend
+- `attb/` — backend
+- `QUICK_START.md` — short local run steps
+- `DEPLOYMENT_GUIDE.md` — deployment steps
+- `FIREBASE_SETUP.md` — Firebase auth setup
+- `USER_FLOW.md` — how to use the app
